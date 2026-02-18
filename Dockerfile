@@ -6,17 +6,22 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Production Stage
-FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-# Configuração para que o Nginx lide com as rotas do React (SPA)
-RUN echo 'server { \
-    listen 80; \
-    location / { \
-        root /usr/share/nginx/html; \
-        index index.html index.htm; \
-        try_files $uri $uri/ /index.html; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
+# Production Stage (Node.js)
+FROM node:18-alpine
+WORKDIR /app
+
+# Copia dependencias e instala apenas as de produção
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copia o código do servidor
+COPY server.js ./
+
+# Copia o build do frontend gerado no estágio anterior
+COPY --from=build /app/dist ./dist
+
+# Cria pasta para persistência de dados
+RUN mkdir -p data
+
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["npm", "start"]
