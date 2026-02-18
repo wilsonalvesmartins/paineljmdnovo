@@ -26,14 +26,13 @@ import {
   Trash2,
   Save,
   CalendarDays,
-  HardDrive,
   Wifi,
   WifiOff
 } from 'lucide-react';
 
 /**
  * JMD PROCESSOS TRABALHISTAS
- * Versão 4.4 (Production Ready)
+ * Versão 4.5 (Crash Protection Fix & CSS Enabled)
  */
 
 // --- DADOS DE CONFIGURAÇÃO (TRTs) ---
@@ -85,7 +84,6 @@ const formatDate = (dateString) => {
 
 const maskCNJ = (value) => {
   if (!value) return '';
-  
   let v = value.replace(/\D/g, '').slice(0, 20);
   
   if (v.length > 16) {
@@ -99,7 +97,6 @@ const maskCNJ = (value) => {
   } else if (v.length > 7) {
     return v.replace(/^(\d{7})(\d+)/, '$1-$2');
   }
-  
   return v;
 };
 
@@ -132,7 +129,7 @@ class ErrorBoundary extends React.Component {
         <div className="flex items-center justify-center h-screen bg-slate-50 flex-col gap-4 p-8 text-center">
           <AlertTriangle size={48} className="text-red-500" />
           <h2 className="text-2xl font-bold text-slate-800">Ocorreu um erro inesperado</h2>
-          <p className="text-slate-600 bg-slate-100 p-4 rounded font-mono text-sm max-w-lg overflow-auto">
+          <p className="text-slate-600 bg-slate-100 p-4 rounded font-mono text-sm max-w-lg overflow-auto text-left">
             {this.state.error?.toString()}
           </p>
           <button 
@@ -171,7 +168,6 @@ const LoginView = ({ onLogin }) => {
           <h1 className="text-2xl font-bold text-slate-800">JMD Processos</h1>
           <p className="text-slate-500">Acesso Restrito</p>
         </div>
-        
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Usuário</label>
@@ -197,13 +193,11 @@ const LoginView = ({ onLogin }) => {
               />
             </div>
           </div>
-          
           {error && (
             <div className="bg-red-50 text-red-600 text-sm p-3 rounded flex items-center gap-2">
               <AlertTriangle size={16} /> Credenciais inválidas.
             </div>
           )}
-
           <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition-colors">
             Entrar no Sistema
           </button>
@@ -624,45 +618,44 @@ function App() {
         }
       `}</style>
 
-      <ErrorBoundary>
-        <aside className="w-20 lg:w-64 bg-slate-900 text-white flex flex-col fixed h-full z-10 transition-all sidebar">
-          <div className="p-6 flex items-center gap-3 border-b border-slate-800">
-            <span className="font-bold text-lg tracking-tight hidden lg:block text-center w-full">JMD Processos</span>
-          </div>
+      <aside className="w-20 lg:w-64 bg-slate-900 text-white flex flex-col fixed h-full z-10 transition-all sidebar">
+        <div className="p-6 flex items-center gap-3 border-b border-slate-800">
+          <span className="font-bold text-lg tracking-tight hidden lg:block text-center w-full">JMD Processos</span>
+        </div>
 
-          <nav className="flex-1 py-6 space-y-2 px-3">
-            <button onClick={() => setActiveView('dashboard')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'dashboard' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-              <LayoutDashboard size={20} /> <span className="hidden lg:block">Visão Geral</span>
-            </button>
-            <button onClick={() => setActiveView('list')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-              <Search size={20} /> <span className="hidden lg:block">Processos</span>
-            </button>
-            <button onClick={() => setActiveView('calendar')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'calendar' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-              <CalendarIcon size={20} /> <span className="hidden lg:block">Agenda Interna</span>
-            </button>
-            <button onClick={() => setActiveView('calculator')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'calculator' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-              <Calculator size={20} /> <span className="hidden lg:block">Calculadora</span>
-            </button>
-          </nav>
+        <nav className="flex-1 py-6 space-y-2 px-3">
+          <button onClick={() => setActiveView('dashboard')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'dashboard' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            <LayoutDashboard size={20} /> <span className="hidden lg:block">Visão Geral</span>
+          </button>
+          <button onClick={() => setActiveView('list')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            <Search size={20} /> <span className="hidden lg:block">Processos</span>
+          </button>
+          <button onClick={() => setActiveView('calendar')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'calendar' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            <CalendarIcon size={20} /> <span className="hidden lg:block">Agenda Interna</span>
+          </button>
+          <button onClick={() => setActiveView('calculator')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'calculator' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            <Calculator size={20} /> <span className="hidden lg:block">Calculadora</span>
+          </button>
+        </nav>
 
-          <div className="p-4 border-t border-slate-800">
-            <button onClick={() => setActiveView('form')} className="w-full flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white py-3 rounded-lg shadow-lg">
-              <PlusCircle size={20} /> <span className="hidden lg:block font-bold">Novo Processo</span>
-            </button>
-          </div>
-        </aside>
+        <div className="p-4 border-t border-slate-800">
+          <button onClick={() => setActiveView('form')} className="w-full flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white py-3 rounded-lg shadow-lg">
+            <PlusCircle size={20} /> <span className="hidden lg:block font-bold">Novo Processo</span>
+          </button>
+        </div>
+      </aside>
 
-        <main className="flex-1 ml-20 lg:ml-64 p-4 lg:p-8 overflow-y-auto h-full">
-          {activeView === 'dashboard' && <DashboardView />}
-          {activeView === 'list' && <ListView />}
-          
-          {activeView === 'form' && <FormView onSave={handleSaveProcess} onCancel={() => setActiveView('dashboard')} />}
-          
-          {activeView === 'detail' && <ProcessDetailView />}
-          {activeView === 'calendar' && <InternalCalendarView />}
-          {activeView === 'calculator' && <AdvancedCalculatorView />}
-        </main>
-      </ErrorBoundary>
+      <main className="flex-1 ml-20 lg:ml-64 p-4 lg:p-8 overflow-y-auto h-full">
+        {activeView === 'dashboard' && <DashboardView />}
+        {activeView === 'list' && <ListView />}
+        
+        {/* USANDO O COMPONENTE SIMPLIFICADO AQUI */}
+        {activeView === 'form' && <FormView onSave={handleSaveProcess} onCancel={() => setActiveView('dashboard')} />}
+        
+        {activeView === 'detail' && <ProcessDetailView />}
+        {activeView === 'calendar' && <InternalCalendarView />}
+        {activeView === 'calculator' && <AdvancedCalculatorView />}
+      </main>
     </div>
   );
 }
@@ -670,6 +663,8 @@ function App() {
 // Render the App
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 );
