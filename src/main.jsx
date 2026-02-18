@@ -78,14 +78,46 @@ const formatDate = (dateString) => {
 
 const maskCNJ = (value) => {
   if (!value) return '';
-  return value
-    .replace(/\D/g, '')
-    .replace(/^(\d{7})(\d)/, '$1-$2')
-    .replace(/(\d{2})(\d)/, '$1.$2')
-    .replace(/(\d{4})(\d)/, '$1.$2')
-    .replace(/(\d{1})(\d)/, '$1.$2')
-    .replace(/(\d{2})(\d)/, '$1.$2')
-    .replace(/(.\d{4})\d+?$/, '$1');
+  
+  // Remove tudo que não é dígito
+  let v = value.replace(/\D/g, '');
+  
+  // Limita ao tamanho máximo do CNJ (20 dígitos)
+  if (v.length > 20) v = v.substring(0, 20);
+
+  // Aplica a máscara do CNJ: NNNNNNN-DD.AAAA.J.TR.OOOO
+  // Exemplo: 0000000-00.0000.5.15.0000
+  
+  // 1. 7 dígitos + resto -> NNNNNNN-resto
+  v = v.replace(/^(\d{7})(\d)/, '$1-$2');
+  
+  // 2. hifen + 2 dígitos + resto -> NNNNNNN-DD.resto
+  v = v.replace(/-(\d{2})(\d)/, '-$1.$2');
+  
+  // 3. ponto + 4 dígitos + resto -> NNNNNNN-DD.AAAA.resto
+  v = v.replace(/\.(\d{4})(\d)/, '.$1.$2');
+  
+  // 4. ponto + 1 dígito + resto -> NNNNNNN-DD.AAAA.J.resto
+  v = v.replace(/\.(\d{1})(\d)/, '.$1.$2');
+  
+  // 5. ponto + 2 dígitos + resto -> NNNNNNN-DD.AAAA.J.TR.resto
+  // (Nota: o regex anterior já cobre o ponto inicial, então pegamos a sequência exata)
+  // Para evitar conflito, aplicamos na parte final se houver caracteres suficientes
+  
+  // Uma abordagem mais segura sequencial para o final:
+  if (v.length > 16) { 
+      // Se já passou do J (1 digito), o próximo ponto é do TR
+      // A regex acima (passo 4) coloca um ponto depois do J. 
+      // Agora precisamos de um ponto depois do TR (2 digitos).
+      // A string está assim: ...AAAA.J.TR...
+      // O replace anterior transformou ...AAAA.JTR... em ...AAAA.J.TR...
+      // Agora queremos transformar ...AAAA.J.TR... em ...AAAA.J.TR.OOOO
+      
+      // Vamos usar uma regex que pega o padrão específico do final para inserir o último ponto
+      v = v.replace(/(\.\d{1}\.\d{2})(\d)/, '$1.$2');
+  }
+  
+  return v;
 };
 
 const getStatusColor = (status) => {
@@ -1103,6 +1135,7 @@ function App() {
           {activeView === 'dashboard' && <DashboardView />}
           {activeView === 'list' && <ListView />}
           
+          {/* USANDO O COMPONENTE SIMPLIFICADO AQUI */}
           {activeView === 'form' && <FormView onSave={handleSaveProcess} onCancel={() => setActiveView('dashboard')} />}
           
           {activeView === 'detail' && <ProcessDetailView />}
