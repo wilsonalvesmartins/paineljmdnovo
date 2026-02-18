@@ -2,7 +2,8 @@
 FROM node:18-alpine as build
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+# Alterado para npm install para não exigir package-lock.json
+RUN npm install
 COPY . .
 RUN npm run build
 
@@ -12,7 +13,8 @@ WORKDIR /app
 
 # Copia dependencias e instala apenas as de produção
 COPY package*.json ./
-RUN npm ci --only=production
+# Alterado para npm install
+RUN npm install --only=production
 
 # Copia o código do servidor
 COPY server.js ./
