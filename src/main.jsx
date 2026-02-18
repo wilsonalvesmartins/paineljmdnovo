@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 
-// ⚠️ IMPORTANTE: No seu GitHub, REMOVA AS BARRAS (//) abaixo para o estilo funcionar!
-// No preview do chat, mantemos comentado para evitar erro de build.
-// import './index.css'; 
+// ✅ CORREÇÃO 1: CSS DESCOMENTADO PARA FUNCIONAR O LAYOUT
+import './index.css'; 
 
 import { 
   LayoutDashboard, 
@@ -36,7 +35,7 @@ import {
 
 /**
  * JMD PROCESSOS TRABALHISTAS
- * Sistema de Gestão Jurídica Inteligente - Versão 3.9 (Fix Form & CSS Import)
+ * Versão 4.1 (CSS Fix & Hybrid Storage)
  */
 
 // --- DADOS DE CONFIGURAÇÃO (TRTs) ---
@@ -472,28 +471,32 @@ function App() {
   const [selectedProcessId, setSelectedProcessId] = useState(null);
   const [filterState, setFilterState] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(false);
 
+  // Load Data with HYBRID FALLBACK (API -> LocalStorage)
   const fetchProcesses = async () => {
     try {
       const res = await fetch('/api/processes');
       const contentType = res.headers.get("content-type");
-      if (contentType && contentType.indexOf("application/json") !== -1) {
+      if (res.ok && contentType && contentType.indexOf("application/json") !== -1) {
         const data = await res.json();
         if (Array.isArray(data)) {
             setProcesses(data);
             setIsOnline(true);
-        } else {
-            setProcesses([]); 
-            setIsOnline(false);
+            return;
         }
-      } else {
-        setProcesses([]); 
-        setIsOnline(false);
       }
+      throw new Error("API falhou ou retornou dados inválidos");
     } catch (err) {
+      // Fallback para LocalStorage se a API falhar
+      console.warn("API indisponível, usando LocalStorage:", err);
       setIsOnline(false);
-      setProcesses([]); 
+      const localData = localStorage.getItem('jmd_processes_backup');
+      if (localData) {
+          try {
+              setProcesses(JSON.parse(localData));
+          } catch(e) { setProcesses([]); }
+      }
     }
   };
 
@@ -505,11 +508,18 @@ function App() {
     }
   }, [isAuthenticated]);
 
+  // Salva backup local sempre que processes mudar
+  useEffect(() => {
+      if (processes.length > 0) {
+          localStorage.setItem('jmd_processes_backup', JSON.stringify(processes));
+      }
+  }, [processes]);
+
   if (!isAuthenticated) {
     return <LoginView onLogin={() => setIsAuthenticated(true)} />;
   }
 
-  // --- ACTIONS (API Local) ---
+  // --- ACTIONS (Hybrid) ---
   const handleStateClick = (uf) => {
     setFilterState(uf);
     setActiveView('list');
@@ -521,17 +531,22 @@ function App() {
   };
 
   const handleSaveProcess = async (newProcess) => {
+    // Tenta API primeiro
     try {
-      await fetch('/api/processes', {
+      const res = await fetch('/api/processes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newProcess)
       });
+      if (!res.ok) throw new Error("Falha na API");
       fetchProcesses();
-      setActiveView('dashboard');
     } catch (e) {
-      alert("Erro ao salvar.");
+      // Fallback Local
+      const updated = [newProcess, ...processes];
+      setProcesses(updated);
+      localStorage.setItem('jmd_processes_backup', JSON.stringify(updated));
     }
+    setActiveView('dashboard');
   };
 
   const handleAddMovement = async (procId, movement) => {
@@ -560,7 +575,11 @@ function App() {
             body: JSON.stringify(updates)
         });
         fetchProcesses();
-    } catch (e) { console.error(e); }
+    } catch (e) {
+        // Fallback Local Update
+        const updatedProcs = processes.map(p => p.id === procId ? { ...p, ...updates } : p);
+        setProcesses(updatedProcs);
+    }
   };
 
   const handleDeleteMovement = async (procId, movId) => {
@@ -575,7 +594,10 @@ function App() {
             body: JSON.stringify({ movements: newMovements })
         });
         fetchProcesses();
-      } catch (e) { console.error(e); }
+      } catch (e) {
+          const updatedProcs = processes.map(p => p.id === procId ? { ...p, movements: newMovements } : p);
+          setProcesses(updatedProcs);
+      }
   };
 
   const handleChangeStatus = async (procId, newStatus) => {
@@ -586,7 +608,10 @@ function App() {
             body: JSON.stringify({ status: newStatus })
         });
         fetchProcesses();
-    } catch (e) { console.error(e); }
+    } catch (e) {
+        const updatedProcs = processes.map(p => p.id === procId ? { ...p, status: newStatus } : p);
+        setProcesses(updatedProcs);
+    }
   };
 
   const printReport = () => {
