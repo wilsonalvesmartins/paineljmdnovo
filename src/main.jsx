@@ -1,4 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import ReactDOM from 'react-dom/client';
+
+// O import do CSS deve estar ativo no seu GitHub para o estilo funcionar
+import './index.css'; 
+
 import { 
   LayoutDashboard, 
   PlusCircle, 
@@ -22,16 +27,51 @@ import {
   Edit2,
   Trash2,
   Save,
-  CalendarDays
+  CalendarDays,
+  HardDrive,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 
 /**
  * JMD PROCESSOS TRABALHISTAS
- * Versão 5.2 - Sistema Unificado e Blindado
+ * Versão 5.3 - Código Completo Restaurado
  */
 
-// --- UTILITÁRIOS ---
+// --- DADOS DE CONFIGURAÇÃO (TRTs) ---
+const TRT_REGIONS = [
+  { region: '15ª Região', trt: 'TRT-15', states: ['SP'], name: 'SP - Interior (Campinas/Região)' },
+  { region: '2ª Região', trt: 'TRT-2', states: ['SP'], name: 'SP - Capital/Grande SP/Baixada' },
+  { region: '1ª Região', trt: 'TRT-1', states: ['RJ'], name: 'Rio de Janeiro' },
+  { region: '3ª Região', trt: 'TRT-3', states: ['MG'], name: 'Minas Gerais' },
+  { region: '4ª Região', trt: 'TRT-4', states: ['RS'], name: 'Rio Grande do Sul' },
+  { region: '5ª Região', trt: 'TRT-5', states: ['BA'], name: 'Bahia' },
+  { region: '6ª Região', trt: 'TRT-6', states: ['PE'], name: 'Pernambuco' },
+  { region: '7ª Região', trt: 'TRT-7', states: ['CE'], name: 'Ceará' },
+  { region: '8ª Região', trt: 'TRT-8', states: ['PA', 'AP'], name: 'Pará e Amapá' },
+  { region: '9ª Região', trt: 'TRT-9', states: ['PR'], name: 'Paraná' },
+  { region: '10ª Região', trt: 'TRT-10', states: ['DF', 'TO'], name: 'DF e Tocantins' },
+  { region: '11ª Região', trt: 'TRT-11', states: ['AM', 'RR'], name: 'Amazonas e Roraima' },
+  { region: '12ª Região', trt: 'TRT-12', states: ['SC'], name: 'Santa Catarina' },
+  { region: '13ª Região', trt: 'TRT-13', states: ['PB'], name: 'Paraíba' },
+  { region: '14ª Região', trt: 'TRT-14', states: ['RO', 'AC'], name: 'Rondônia e Acre' },
+  { region: '16ª Região', trt: 'TRT-16', states: ['MA'], name: 'Maranhão' },
+  { region: '17ª Região', trt: 'TRT-17', states: ['ES'], name: 'Espírito Santo' },
+  { region: '18ª Região', trt: 'TRT-18', states: ['GO'], name: 'Goiás' },
+  { region: '19ª Região', trt: 'TRT-19', states: ['AL'], name: 'Alagoas' },
+  { region: '20ª Região', trt: 'TRT-20', states: ['SE'], name: 'Sergipe' },
+  { region: '21ª Região', trt: 'TRT-21', states: ['RN'], name: 'Rio Grande do Norte' },
+  { region: '22ª Região', trt: 'TRT-22', states: ['PI'], name: 'Piauí' },
+  { region: '23ª Região', trt: 'TRT-23', states: ['MT'], name: 'Mato Grosso' },
+  { region: '24ª Região', trt: 'TRT-24', states: ['MS'], name: 'Mato Grosso do Sul' },
+];
 
+const UF_LIST = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 
+  'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
+];
+
+// --- UTILITÁRIOS ---
 const formatDate = (dateString) => {
   if (!dateString) return '-';
   try {
@@ -49,7 +89,6 @@ const maskCNJ = (value) => {
   if (!value) return '';
   let v = value.replace(/\D/g, '').slice(0, 20);
   
-  // Formato: 0010495-16.2023.5.15.0112 (7-2.4.1.2.4)
   if (v.length > 16) {
     return v.replace(/^(\d{7})(\d{2})(\d{4})(\d{1})(\d{2})(\d+)/, '$1-$2.$3.$4.$5.$6');
   } else if (v.length > 14) {
@@ -75,215 +114,1033 @@ const getStatusColor = (status) => {
   }
 };
 
-// --- COMPONENTES DE INTERFACE ---
+// --- ERROR BOUNDARY ---
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("Erro capturado:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center h-screen bg-slate-50 flex-col gap-4 p-8 text-center">
+          <AlertTriangle size={48} className="text-red-500" />
+          <h2 className="text-2xl font-bold text-slate-800">Ocorreu um erro inesperado</h2>
+          <p className="text-slate-600 bg-slate-100 p-4 rounded font-mono text-sm max-w-lg overflow-auto text-left">
+            {this.state.error?.toString()}
+          </p>
+          <button 
+            onClick={() => { localStorage.clear(); window.location.reload(); }}
+            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          >
+            Limpar Cache e Recarregar
+          </button>
+        </div>
+      );
+    }
+    return this.props.children; 
+  }
+}
+
+// --- COMPONENTES ---
+
+const LoginView = ({ onLogin }) => {
+  const [user, setUser] = useState('');
+  const [pass, setPass] = useState('');
+  const [error, setError] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (user === 'administrador' && pass === '36672456') {
+      onLogin();
+    } else {
+      setError(true);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold text-slate-800">JMD Processos</h1>
+          <p className="text-slate-500">Acesso Restrito</p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Usuário</label>
+            <div className="relative">
+              <User className="absolute left-3 top-3 text-slate-400" size={18} />
+              <input 
+                type="text" 
+                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                value={user}
+                onChange={e => setUser(e.target.value)}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Senha</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
+              <input 
+                type="password" 
+                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                value={pass}
+                onChange={e => setPass(e.target.value)}
+              />
+            </div>
+          </div>
+          {error && <div className="bg-red-50 text-red-600 text-sm p-3 rounded flex items-center gap-2"><AlertTriangle size={16} /> Credenciais inválidas.</div>}
+          <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition-colors">Entrar no Sistema</button>
+        </form>
+      </div>
+    </div>
+  );
+};
 
 const BrazilMap = ({ processes = [], onStateClick }) => {
+  const [hoveredState, setHoveredState] = useState(null);
   const stats = useMemo(() => {
     const data = {};
+    if (!Array.isArray(processes)) return data; 
     processes.forEach(p => {
-      if (!data[p.uf]) data[p.uf] = { total: 0 };
+      if (!data[p.uf]) data[p.uf] = { total: 0, trt2: 0, trt15: 0, active: 0 };
       data[p.uf].total++;
+      if (p.status === 'Ativo') data[p.uf].active++;
+      if (p.uf === 'SP') {
+        if (p.trt === 'TRT-2') data[p.uf].trt2++;
+        if (p.trt === 'TRT-15') data[p.uf].trt15++;
+      }
     });
     return data;
   }, [processes]);
 
   const getStateColor = (uf) => {
     const count = stats[uf]?.total || 0;
-    return count === 0 ? '#e5e7eb' : count < 3 ? '#93c5fd' : '#1e40af';
+    if (count === 0) return '#e5e7eb';
+    if (count < 2) return '#93c5fd';
+    if (count < 5) return '#3b82f6';
+    return '#1e40af';
   };
 
   const states = [
-    { id: 'RR', x: 100, y: 30, r: 15 }, { id: 'AP', x: 180, y: 40, r: 12 }, { id: 'AM', x: 70, y: 80, r: 35 }, 
-    { id: 'PA', x: 160, y: 90, r: 30 }, { id: 'AC', x: 30, y: 130, r: 12 }, { id: 'RO', x: 75, y: 150, r: 15 }, 
-    { id: 'TO', x: 190, y: 140, r: 15 }, { id: 'MA', x: 215, y: 80, r: 15 }, { id: 'PI', x: 235, y: 95, r: 14 }, 
-    { id: 'CE', x: 260, y: 75, r: 12 }, { id: 'RN', x: 285, y: 85, r: 10 }, { id: 'PB', x: 285, y: 100, r: 9 }, 
-    { id: 'PE', x: 280, y: 115, r: 10 }, { id: 'AL', x: 285, y: 130, r: 8 }, { id: 'SE', x: 275, y: 140, r: 8 }, 
-    { id: 'BA', x: 240, y: 160, r: 25 }, { id: 'MT', x: 120, y: 190, r: 25 }, { id: 'GO', x: 180, y: 200, r: 18 }, 
-    { id: 'DF', x: 195, y: 195, r: 6 }, { id: 'MS', x: 130, y: 250, r: 20 }, { id: 'MG', x: 220, y: 230, r: 22 }, 
-    { id: 'ES', x: 255, y: 235, r: 10 }, { id: 'RJ', x: 240, y: 265, r: 10 }, { id: 'SP', x: 190, y: 280, r: 20 }, 
-    { id: 'PR', x: 170, y: 310, r: 15 }, { id: 'SC', x: 180, y: 335, r: 12 }, { id: 'RS', x: 160, y: 365, r: 18 }
+    { id: 'RR', name: 'Roraima', x: 100, y: 30, r: 15 },
+    { id: 'AP', name: 'Amapá', x: 180, y: 40, r: 12 },
+    { id: 'AM', name: 'Amazonas', x: 70, y: 80, r: 35 },
+    { id: 'PA', name: 'Pará', x: 160, y: 90, r: 30 },
+    { id: 'AC', name: 'Acre', x: 30, y: 130, r: 12 },
+    { id: 'RO', name: 'Rondônia', x: 75, y: 150, r: 15 },
+    { id: 'TO', name: 'Tocantins', x: 190, y: 140, r: 15 },
+    { id: 'MA', name: 'Maranhão', x: 215, y: 80, r: 15 },
+    { id: 'PI', name: 'Piauí', x: 235, y: 95, r: 14 },
+    { id: 'CE', name: 'Ceará', x: 260, y: 75, r: 12 },
+    { id: 'RN', name: 'Rio G. Norte', x: 285, y: 85, r: 10 },
+    { id: 'PB', name: 'Paraíba', x: 285, y: 100, r: 9 },
+    { id: 'PE', name: 'Pernambuco', x: 280, y: 115, r: 10 },
+    { id: 'AL', name: 'Alagoas', x: 285, y: 130, r: 8 },
+    { id: 'SE', name: 'Sergipe', x: 275, y: 140, r: 8 },
+    { id: 'BA', name: 'Bahia', x: 240, y: 160, r: 25 },
+    { id: 'MT', name: 'Mato Grosso', x: 120, y: 190, r: 25 },
+    { id: 'GO', name: 'Goiás', x: 180, y: 200, r: 18 },
+    { id: 'DF', name: 'Distrito Federal', x: 195, y: 195, r: 6 },
+    { id: 'MS', name: 'Mato G. Sul', x: 130, y: 250, r: 20 },
+    { id: 'MG', name: 'Minas Gerais', x: 220, y: 230, r: 22 },
+    { id: 'ES', name: 'Espírito Santo', x: 255, y: 235, r: 10 },
+    { id: 'RJ', name: 'Rio de Janeiro', x: 240, y: 265, r: 10 },
+    { id: 'SP', name: 'São Paulo', x: 190, y: 280, r: 20 },
+    { id: 'PR', name: 'Paraná', x: 170, y: 310, r: 15 },
+    { id: 'SC', name: 'Santa Catarina', x: 180, y: 335, r: 12 },
+    { id: 'RS', name: 'Rio G. Sul', x: 160, y: 365, r: 18 },
   ];
 
   return (
-    <div className="relative w-full h-96 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center">
-      <svg viewBox="0 0 320 400" className="w-full h-full max-w-lg">
-        {states.map((s) => (
-          <g key={s.id} onClick={() => onStateClick(s.id)} className="cursor-pointer hover:opacity-80">
-            <circle cx={s.x} cy={s.y} r={s.r} fill={getStateColor(s.id)} stroke="white" strokeWidth="2" />
-            <text x={s.x} y={s.y} dy=".3em" textAnchor="middle" fill="white" fontSize="9" fontWeight="bold" pointerEvents="none">{s.id}</text>
+    <div className="relative w-full h-96 bg-slate-50 rounded-xl border border-slate-200 shadow-inner flex items-center justify-center overflow-hidden">
+      <svg viewBox="0 0 320 400" className="w-full h-full max-w-lg drop-shadow-lg">
+        {states.map((state) => (
+          <g key={state.id} onClick={() => onStateClick(state.id)} onMouseEnter={() => setHoveredState(state)} onMouseLeave={() => setHoveredState(null)} className="cursor-pointer transition-all duration-300 hover:opacity-80">
+            <circle cx={state.x} cy={state.y} r={state.r} fill={getStateColor(state.id)} stroke="white" strokeWidth="2" />
+            <text x={state.x} y={state.y} dy=".3em" textAnchor="middle" fill="white" fontSize="9" fontWeight="bold" pointerEvents="none">{state.id}</text>
           </g>
         ))}
       </svg>
+      {hoveredState && (
+        <div className="absolute z-50 bg-slate-800 text-white text-sm rounded-lg p-3 shadow-xl pointer-events-none transform -translate-x-1/2 -translate-y-full" style={{ top: hoveredState.y - 10, left: hoveredState.x + 40 }}>
+          <div className="font-bold border-b border-slate-600 pb-1 mb-1 whitespace-nowrap">{hoveredState.name}</div>
+          <div className="space-y-1">
+            <div className="flex justify-between gap-4"><span>Total Processos:</span><span className="font-bold">{stats[hoveredState.id]?.total || 0}</span></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-// --- VIEWS ---
-
-const DashboardView = ({ processes, onStateClick }) => (
-  <div className="space-y-6">
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="bg-white p-6 rounded-xl border flex justify-between items-center shadow-sm">
-        <div><p className="text-slate-500 text-xs font-bold uppercase">Processos</p><h3 className="text-2xl font-bold">{processes.length}</h3></div>
-        <FileText className="text-indigo-600" size={28} />
-      </div>
-      <div className="bg-white p-6 rounded-xl border flex justify-between items-center shadow-sm">
-        <div><p className="text-slate-500 text-xs font-bold uppercase">Ativos</p><h3 className="text-2xl font-bold">{processes.filter(p => p.status === 'Ativo').length}</h3></div>
-        <Briefcase className="text-blue-600" size={28} />
-      </div>
-    </div>
-    <div className="bg-white p-6 rounded-xl border shadow-sm">
-      <h3 className="font-bold text-slate-800 mb-4">Abrangência Nacional</h3>
-      <BrazilMap processes={processes} onStateClick={onStateClick} />
-    </div>
-  </div>
-);
-
-const ListView = ({ processes, filterState, setFilterState, onProcessClick }) => {
-  const [term, setTerm] = useState('');
-  const filtered = processes.filter(p => (!filterState || p.uf === filterState) && (!term || p.client.toLowerCase().includes(term.toLowerCase()) || p.cnj.includes(term)));
-
+const ProcessTimeline = ({ movements, onEdit, onDelete }) => {
+  const visibleMovements = (movements || []).filter(m => m.title !== 'Cadastro Inicial');
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold">Processos {filterState ? `(${filterState})` : ''}</h2>
-        <div className="relative w-64 flex items-center gap-2">
-          {filterState && <button onClick={() => setFilterState(null)} className="text-xs text-indigo-600 underline">Limpar</button>}
-          <input type="text" placeholder="Filtrar..." className="w-full p-2 border rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500" value={term} onChange={e => setTerm(e.target.value)} />
+    <div className="space-y-6 ml-2">
+      {visibleMovements.map((mov, idx) => (
+        <div key={idx} className="relative pl-8 border-l-2 border-slate-200 last:border-0 pb-6 group">
+          <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 border-white shadow-sm ${idx === 0 ? 'bg-indigo-600' : 'bg-slate-300'}`}></div>
+          <div className="flex flex-col gap-2 relative">
+            <div className="absolute right-0 top-0 hidden group-hover:flex gap-2 no-print">
+                <button onClick={() => onEdit(mov)} className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded" title="Editar"><Edit2 size={14} /></button>
+                <button onClick={() => onDelete(mov.id)} className="p-1 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded" title="Excluir"><Trash2 size={14} /></button>
+            </div>
+            <div className="flex justify-between items-start pr-12">
+              <div>
+                <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded ${mov.type === 'Prazo' ? 'bg-red-100 text-red-700' : mov.type === 'Audiência' ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-500'}`}>{mov.type}</span>
+                <h4 className={`font-semibold text-sm mt-1 ${idx === 0 ? 'text-slate-900' : 'text-slate-600'}`}>{mov.title}</h4>
+              </div>
+              <div className="text-xs text-slate-400 font-mono whitespace-nowrap bg-slate-50 px-2 py-1 rounded">{formatDate(mov.date)}</div>
+            </div>
+            <p className="text-sm text-slate-500">{mov.description}</p>
+          </div>
         </div>
-      </div>
-      <div className="bg-white rounded-xl border overflow-hidden shadow-sm">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 border-b text-slate-500 text-[10px] font-bold uppercase">
-            <tr><th className="p-4">Cliente</th><th className="p-4">Tribunal</th><th className="p-4">Status</th><th className="p-4"></th></tr>
-          </thead>
-          <tbody className="divide-y">
-            {filtered.map(p => (
-              <tr key={p.id} className="hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => onProcessClick(p.id)}>
-                <td className="p-4"><div className="font-semibold text-slate-900">{p.client}</div><div className="text-xs text-slate-400 font-mono mt-0.5">{p.cnj}</div></td>
-                <td className="p-4 text-slate-600 font-medium">{p.trt}</td>
-                <td className="p-4"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${getStatusColor(p.status)}`}>{p.status}</span></td>
-                <td className="p-4 text-right"><ChevronRight size={16} className="text-slate-300" /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {filtered.length === 0 && <div className="p-10 text-center text-slate-400">Nenhum registo encontrado.</div>}
-      </div>
+      ))}
+      {visibleMovements.length === 0 && <p className="text-slate-400 text-center text-sm py-4">Nenhuma movimentação relevante registrada.</p>}
     </div>
   );
+};
+
+const AdvancedCalculatorView = () => {
+    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+    const [days, setDays] = useState(15);
+    const [countMode, setCountMode] = useState('business'); 
+    const [holidays, setHolidays] = useState([]); 
+    const [newHoliday, setNewHoliday] = useState('');
+    const [extendWeekend, setExtendWeekend] = useState(true);
+    const [resultDate, setResultDate] = useState(null);
+
+    const addHoliday = () => { if (newHoliday && !holidays.includes(newHoliday)) { setHolidays([...holidays, newHoliday].sort()); setNewHoliday(''); } };
+    const removeHoliday = (date) => { setHolidays(holidays.filter(h => h !== date)); };
+    const calculate = () => {
+        let current = new Date(startDate); current.setDate(current.getDate() + 1);
+        let added = 0;
+        while (added < days) {
+            const isWeekend = current.getDay() === 0 || current.getDay() === 6;
+            const isHoliday = holidays.includes(current.toISOString().split('T')[0]);
+            if (countMode === 'business') { if (!isWeekend && !isHoliday) added++; } else { added++; }
+            if (added < days) current.setDate(current.getDate() + 1);
+        }
+        if (countMode === 'calendar' && extendWeekend) {
+            while (true) {
+                const isWeekend = current.getDay() === 0 || current.getDay() === 6;
+                const isHoliday = holidays.includes(current.toISOString().split('T')[0]);
+                if (!isWeekend && !isHoliday) break;
+                current.setDate(current.getDate() + 1);
+            }
+        }
+        setResultDate(current);
+    };
+
+    return (
+        <div className="max-w-4xl mx-auto animate-in">
+            <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2"><Calculator className="text-indigo-600" /> Calculadora de Prazos Processuais</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-6">
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Data de Publicação</label><input type="date" className="w-full p-3 border rounded-lg" value={startDate} onChange={e => setStartDate(e.target.value)} /></div>
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Prazo (Dias)</label><input type="number" className="w-full p-3 border rounded-lg" value={days} onChange={e => setDays(parseInt(e.target.value))} /></div>
+                    <div className="space-y-3">
+                        <label className="block text-sm font-medium text-slate-700">Modo de Contagem</label>
+                        <div className="flex gap-4">
+                            <label className={`flex-1 p-3 border rounded-lg cursor-pointer flex items-center justify-center gap-2 ${countMode === 'business' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-slate-50'}`}>
+                                <input type="radio" name="mode" className="hidden" checked={countMode === 'business'} onChange={() => setCountMode('business')} />
+                                <Briefcase size={16} /> Dias Úteis (CPC/CLT)
+                            </label>
+                            <label className={`flex-1 p-3 border rounded-lg cursor-pointer flex items-center justify-center gap-2 ${countMode === 'calendar' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-slate-50'}`}>
+                                <input type="radio" name="mode" className="hidden" checked={countMode === 'calendar'} onChange={() => setCountMode('calendar')} />
+                                <CalendarDays size={16} /> Dias Corridos
+                            </label>
+                        </div>
+                    </div>
+                    {countMode === 'calendar' && (
+                        <div className="flex items-center gap-2">
+                            <input type="checkbox" id="extend" checked={extendWeekend} onChange={e => setExtendWeekend(e.target.checked)} className="w-4 h-4 text-indigo-600" />
+                            <label htmlFor="extend" className="text-sm text-slate-700">Prorrogar se vencer em dia não útil</label>
+                        </div>
+                    )}
+                    <button onClick={calculate} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold shadow-lg shadow-indigo-200">Calcular Prazo Fatal</button>
+                </div>
+                {resultDate && (
+                    <div className="bg-green-50 border-2 border-green-200 p-6 rounded-xl text-center">
+                        <span className="block text-sm font-bold text-green-700 uppercase tracking-wide mb-2">Prazo Final</span>
+                        <div className="text-4xl font-extrabold text-green-800 mb-2">{formatDate(resultDate.toISOString().split('T')[0])}</div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 };
 
 const FormView = ({ onSave, onCancel }) => {
-  const [f, setF] = useState({ client: '', uf: 'SP', trt: 'TRT-15', cnj: '' });
-  return (
-    <div className="max-w-xl mx-auto py-4">
-      <h2 className="text-xl font-bold mb-6 text-slate-800">Novo Cadastro</h2>
-      <form onSubmit={e => { e.preventDefault(); onSave({...f, id: Date.now().toString(), status: 'Ativo', movements: []}); }} className="bg-white p-8 rounded-2xl border shadow-lg space-y-6">
-        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cliente</label><input required className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" value={f.client} onChange={e => setF({...f, client: e.target.value})} /></div>
-        <div className="grid grid-cols-2 gap-4">
-          <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">UF</label><select className="w-full p-2.5 border rounded-lg bg-white" value={f.uf} onChange={e => setF({...f, uf: e.target.value})}>
-            {['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'].map(u => <option key={u}>{u}</option>)}
-          </select></div>
-          <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Tribunal</label><input className="w-full p-2.5 border rounded-lg bg-slate-50" readOnly value={f.trt} /></div>
-        </div>
-        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Número do Processo (CNJ)</label><input required placeholder="0010495-16.2023.5.15.0112" className="w-full p-2.5 border rounded-lg font-mono outline-none focus:ring-2 focus:ring-indigo-500" value={f.cnj} onChange={e => setF({...f, cnj: maskCNJ(e.target.value)})} /></div>
-        <div className="flex gap-3 pt-4"><button type="button" onClick={onCancel} className="flex-1 p-3 bg-slate-100 rounded-lg text-sm font-bold">Cancelar</button><button type="submit" className="flex-1 p-3 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700">Salvar</button></div>
-      </form>
-    </div>
-  );
+    // PRE-SELEÇÃO TRT-15 (Interior)
+    const [formData, setFormData] = useState({
+      client: '',
+      uf: 'SP',
+      trt: 'TRT-15',
+      cnj: '',
+      tags: ''
+    });
+
+    const handleSubmit = (e) => {
+      e.preventDefault();
+      const newProc = {
+        id: Date.now().toString(),
+        client: formData.client,
+        cnj: formData.cnj,
+        uf: formData.uf,
+        trt: formData.trt,
+        tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
+        status: 'Ativo',
+        nextHearing: null,
+        movements: [
+          { id: 'initial', date: new Date().toISOString(), title: 'Cadastro Inicial', description: 'Processo cadastrado no sistema.', type: 'Admin' }
+        ]
+      };
+      onSave(newProc);
+    };
+
+    const handleStateChange = (e) => {
+        const newUf = e.target.value;
+        const validTrts = TRT_REGIONS.filter(r => r.states.includes(newUf));
+        setFormData(prev => ({
+            ...prev,
+            uf: newUf,
+            trt: validTrts.length > 0 ? validTrts[0].trt : ''
+        }));
+    };
+
+    const currentTrts = TRT_REGIONS.filter(region => region.states.includes(formData.uf));
+
+    return (
+      <div className="max-w-2xl mx-auto">
+        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+          <PlusCircle className="text-indigo-600" /> Novo Cadastro
+        </h2>
+
+        <form onSubmit={handleSubmit} className="bg-white p-8 rounded-xl shadow-lg border border-slate-200 space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Cliente</label>
+            <input required type="text" className="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+              value={formData.client} onChange={e => setFormData({...formData, client: e.target.value})} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Estado (UF)</label>
+              <select className="w-full p-3 border border-slate-300 rounded-lg bg-white"
+                value={formData.uf} 
+                onChange={handleStateChange}>
+                {UF_LIST.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Tribunal/Jurisdição</label>
+              <select className="w-full p-3 border border-slate-300 rounded-lg bg-white"
+                value={formData.trt} onChange={e => setFormData({...formData, trt: e.target.value})}>
+                {currentTrts.map(t => (
+                    <option key={t.trt} value={t.trt}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Número do Processo (CNJ)</label>
+            <input required type="text" className="w-full p-3 border border-slate-300 rounded-lg font-mono tracking-wide"
+              placeholder="0010495-16.2023.5.15.0112"
+              value={formData.cnj} onChange={e => setFormData({...formData, cnj: maskCNJ(e.target.value)})} />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Etiquetas (Separar por vírgula)</label>
+            <input type="text" className="w-full p-3 border border-slate-300 rounded-lg"
+              placeholder="Trabalhista, Urgente, Pro Bono"
+              value={formData.tags} onChange={e => setFormData({...formData, tags: e.target.value})} />
+          </div>
+
+          <div className="pt-4 flex gap-3">
+            <button type="button" onClick={onCancel} className="flex-1 py-3 px-4 border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50">Cancelar</button>
+            <button type="submit" className="flex-1 py-3 px-4 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700">Cadastrar Processo</button>
+          </div>
+        </form>
+      </div>
+    );
 };
 
-const DetailView = ({ process, onBack, onAddMovement, onDeleteMovement }) => {
-  if (!process) return null;
-  const [showAdd, setShowAdd] = useState(false);
-  const [newM, setNewM] = useState({ title: '', date: new Date().toISOString().split('T')[0], type: 'Documento', description: '' });
+const DashboardView = ({ processes, onStateClick }) => {
+    const active = processes.filter(p => p.status === 'Ativo').length;
+    
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    const today = new Date();
+    
+    const upcomingHearings = processes.reduce((acc, p) => {
+        if (p.nextHearing) {
+            const hDate = new Date(p.nextHearing);
+            if (hDate >= today && hDate <= nextWeek) return acc + 1;
+        }
+        return acc;
+    }, 0);
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <button onClick={onBack} className="text-slate-400 flex items-center gap-1 text-sm hover:text-indigo-600 transition-colors"><ArrowLeft size={16} /> Voltar</button>
-      <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
-        <div className="bg-slate-50 p-8 border-b">
-          <div className="flex justify-between items-start">
-            <div><h1 className="text-3xl font-bold text-slate-900">{process.client}</h1><p className="font-mono text-lg text-slate-500 mt-1">{process.cnj}</p></div>
-            <div className="text-right"><span className={`px-4 py-1.5 rounded-full text-xs font-bold ${getStatusColor(process.status)} shadow-sm`}>{process.status}</span><p className="text-sm text-slate-500 font-medium mt-3">{process.trt}</p></div>
+    return (
+      <div className="space-y-6 animate-in">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+            <div>
+              <p className="text-slate-500 text-sm font-medium">Audiências (7 dias)</p>
+              <h3 className="text-2xl font-bold text-slate-800">{upcomingHearings}</h3>
+            </div>
+            <div className="p-3 bg-orange-100 text-orange-600 rounded-lg"><Gavel size={24} /></div>
+          </div>
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+            <div>
+              <p className="text-slate-500 text-sm font-medium">Total Processos</p>
+              <h3 className="text-2xl font-bold text-slate-800">{processes.length}</h3>
+            </div>
+            <div className="p-3 bg-slate-100 text-slate-600 rounded-lg"><FileText size={24} /></div>
+          </div>
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+            <div>
+              <p className="text-slate-500 text-sm font-medium">Ativos</p>
+              <h3 className="text-2xl font-bold text-slate-800">{activeCount}</h3>
+            </div>
+            <div className="p-3 bg-blue-100 text-blue-600 rounded-lg"><Briefcase size={24} /></div>
           </div>
         </div>
-        <div className="p-8">
-           <div className="flex justify-between items-center mb-8"><h3 className="font-bold text-slate-800 uppercase tracking-wide text-sm">Histórico Processual</h3><button onClick={() => setShowAdd(true)} className="p-2 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold transition-colors">Adicionar Movimento</button></div>
-           {showAdd && (
-             <form onSubmit={e => { e.preventDefault(); onAddMovement(process.id, {...newM, id: Date.now().toString()}); setShowAdd(false); }} className="mb-10 p-6 bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <select className="p-2 border rounded-lg bg-white" value={newM.type} onChange={e => setNewM({...newM, type: e.target.value})}><option>Documento</option><option>Audiência</option><option>Prazo</option><option>Sentença</option></select>
-                  <input type="date" className="p-2 border rounded-lg bg-white" value={newM.date} onChange={e => setNewM({...newM, date: e.target.value})} />
-                </div>
-                <input required placeholder="Título do Evento" className="w-full p-2 border rounded-lg bg-white" value={newM.title} onChange={e => setNewM({...newM, title: e.target.value})} />
-                <textarea placeholder="Descrição..." className="w-full p-2 border rounded-lg bg-white" value={newM.description} onChange={e => setNewM({...newM, description: e.target.value})} />
-                <div className="flex gap-2 justify-end"><button type="button" onClick={() => setShowAdd(false)} className="px-4 py-1.5 text-xs text-slate-500">Cancelar</button><button type="submit" className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold">Salvar</button></div>
-             </form>
-           )}
-           <div className="space-y-6">
-              {process.movements.map((mov, idx) => (
-                <div key={mov.id} className="relative pl-8 border-l-2 border-slate-200 last:border-0 pb-6 group">
-                  <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 border-white ${idx === 0 ? 'bg-indigo-600' : 'bg-slate-300'}`}></div>
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1"><h4 className="font-semibold text-sm text-slate-900">{mov.title}</h4><p className="text-xs text-slate-500 mt-1">{mov.description}</p></div>
-                    <div className="flex flex-col items-end gap-2"><span className="text-xs text-slate-400">{formatDate(mov.date)}</span><button onClick={() => onDeleteMovement(process.id, mov.id)} className="p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14} /></button></div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><MapPin size={18} /> Mapa Nacional</h3>
+            <BrazilMap processes={processes} onStateClick={onStateClick} />
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 overflow-y-auto max-h-[460px]">
+            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Clock size={18} /> Radar de Atividade</h3>
+            <div className="space-y-4">
+              {processes
+                .filter(p => p.movements && p.movements.length > 0)
+                .sort((a, b) => new Date(b.movements[0].date) - new Date(a.movements[0].date))
+                .slice(0, 5)
+                .map(p => (
+                  <div key={p.id} className="cursor-pointer group hover:bg-slate-50 p-2 rounded transition-colors">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="text-xs font-mono text-slate-400">{p.trt}</span>
+                      <span className="text-xs text-slate-400">{formatDate(p.movements[0].date)}</span>
+                    </div>
+                    <p className="font-medium text-sm text-slate-800 group-hover:text-indigo-600 truncate">{p.client}</p>
+                    <p className="text-xs text-slate-500 truncate">{p.movements[0].title}</p>
                   </div>
-                </div>
               ))}
-           </div>
+              {processes.length === 0 && <p className="text-center text-slate-400 text-sm py-4">Nenhum processo encontrado.</p>}
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+};
+
+const ListView = ({ processes, filterState, setFilterState, searchTerm, setSearchTerm, handleProcessClick }) => {
+    let list = filterState ? processes.filter(p => p.uf === filterState) : processes;
+
+    if (searchTerm) {
+        list = list.filter(p => 
+            p.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.cnj.includes(searchTerm) ||
+            (p.tags && p.tags.some(t => t.toLowerCase().includes(searchTerm.toLowerCase())))
+        );
+    }
+
+    return (
+      <div className="animate-in">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-4">
+            <button onClick={() => { setFilterState(null); }} className="p-2 hover:bg-slate-200 rounded-full">
+              <ArrowLeft size={20} />
+            </button>
+            <h2 className="text-2xl font-bold text-slate-800">
+              {filterState ? `Processos em ${filterState}` : 'Todos os Processos'}
+            </h2>
+            <span className="bg-slate-200 text-slate-700 px-3 py-1 rounded-full text-sm font-bold">{list.length}</span>
+          </div>
+
+          <div className="relative w-full md:w-64">
+             <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+             <input 
+                type="text" 
+                placeholder="Pesquisar cliente, CNJ..." 
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+             />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+              <tr>
+                <th className="p-4 font-medium">Cliente / Processo</th>
+                <th className="p-4 font-medium">Tribunal</th>
+                <th className="p-4 font-medium">Status</th>
+                <th className="p-4 font-medium">Última Mov.</th>
+                <th className="p-4 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {list.map(p => (
+                <tr key={p.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => handleProcessClick(p.id)}>
+                  <td className="p-4">
+                    <div className="font-medium text-slate-900">{p.client}</div>
+                    <div className="text-xs text-slate-500 font-mono mt-0.5">{p.cnj}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="text-sm text-slate-700">{p.trt}</div>
+                    <div className="text-xs text-slate-400">{p.uf}</div>
+                  </td>
+                  <td className="p-4">
+                    <span className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(p.status)}`}>{p.status}</span>
+                  </td>
+                  <td className="p-4">
+                    <div className="text-sm text-slate-600 truncate max-w-[150px]">
+                      {p.movements && p.movements[0] ? p.movements[0].title : '-'}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      {p.movements && p.movements[0] ? formatDate(p.movements[0].date) : '-'}
+                    </div>
+                  </td>
+                  <td className="p-4 text-right">
+                    <ChevronRight size={18} className="text-slate-300 group-hover:text-indigo-600 inline-block" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {list.length === 0 && <div className="p-12 text-center text-slate-400">Nenhum processo encontrado.</div>}
+        </div>
+      </div>
+    );
+};
+
+const InternalCalendarView = ({ processes, handleProcessClick }) => {
+    const events = processes.flatMap(p => {
+        return (p.movements || [])
+          .filter(m => m.type === 'Audiência' || m.type === 'Prazo')
+          .map(m => ({
+              id: p.id + m.date,
+              date: m.date,
+              time: m.time || '00:00',
+              type: m.type,
+              title: m.title,
+              client: p.client,
+              processId: p.id
+          }));
+    }).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    return (
+      <div className="animate-in max-w-4xl mx-auto">
+          <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+              <CalendarIcon className="text-indigo-600" /> Agenda Interna do Escritório
+          </h2>
+
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="p-4 bg-slate-50 border-b border-slate-200 font-medium text-slate-500 flex justify-between">
+                  <span>Próximos Compromissos</span>
+                  <span>{events.length} eventos encontrados</span>
+              </div>
+              <div className="divide-y divide-slate-100">
+                  {events.length === 0 ? (
+                      <div className="p-8 text-center text-slate-400">Nenhum evento agendado.</div>
+                  ) : (
+                      events.map((evt, idx) => (
+                          <div key={idx} onClick={() => handleProcessClick(evt.processId)} className="p-4 hover:bg-slate-50 cursor-pointer flex items-center gap-4 group transition-colors">
+                              <div className="text-center min-w-[60px]">
+                                  <span className="block text-xs font-bold text-slate-400 uppercase">{new Date(evt.date).toLocaleDateString('pt-BR', { weekday: 'short' })}</span>
+                                  <span className="block text-xl font-bold text-slate-800">{new Date(evt.date).getDate()}</span>
+                                  <span className="block text-xs text-slate-500">{new Date(evt.date).toLocaleDateString('pt-BR', { month: 'short' })}</span>
+                              </div>
+                              <div className={`w-1 h-12 rounded-full ${evt.type === 'Audiência' ? 'bg-orange-400' : 'bg-red-400'}`}></div>
+                              <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                      <span className={`text-xs px-2 py-0.5 rounded font-bold uppercase ${
+                                          evt.type === 'Audiência' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'
+                                      }`}>
+                                          {evt.type}
+                                      </span>
+                                      {evt.type === 'Audiência' && <span className="text-xs text-slate-500 flex items-center gap-1"><Clock size={12} /> {evt.time}</span>}
+                                  </div>
+                                  <h4 className="font-bold text-slate-800 group-hover:text-indigo-600">{evt.title}</h4>
+                                  <p className="text-sm text-slate-500">{evt.client}</p>
+                              </div>
+                              <ChevronRight className="text-slate-300 group-hover:text-indigo-600" size={20} />
+                          </div>
+                      ))
+                  )}
+              </div>
+          </div>
+      </div>
+    );
+};
+
+const ProcessDetailView = ({ process, onBack, onAddMovement, onDeleteMovement, onUpdateStatus }) => {
+    if (!process) return null;
+
+    const [newMovOpen, setNewMovOpen] = useState(false);
+    const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+    
+    // Estado do form
+    const [movData, setMovData] = useState({ 
+        id: null,
+        title: '', 
+        description: '', 
+        type: 'Documento', 
+        date: new Date().toISOString().split('T')[0],
+        hearingType: 'Una', 
+        modality: 'Presencial', 
+        link: '',
+        time: '10:00',
+        deadlineGoal: ''
+    });
+
+    const startEditing = (mov) => {
+        setMovData({
+            ...mov,
+            hearingType: mov.hearingType || 'Una',
+            modality: mov.modality || 'Presencial',
+            link: mov.link || '',
+            time: mov.time || '10:00',
+            deadlineGoal: ''
+        });
+        setNewMovOpen(true);
+    };
+
+    const submitMovement = (e) => {
+      e.preventDefault();
+      let finalTitle = movData.title;
+      let finalDesc = movData.description;
+
+      if (movData.type === 'Prazo' && movData.deadlineGoal) {
+          finalTitle = `Prazo: ${movData.deadlineGoal}`;
+      }
+      if (movData.type === 'Audiência') {
+          finalTitle = `Audiência ${movData.hearingType} (${movData.modality})`;
+      }
+
+      onAddMovement(process.id, {
+          ...movData,
+          title: finalTitle,
+          description: finalDesc,
+          id: Date.now().toString()
+      });
+      setNewMovOpen(false);
+      setMovData({ id: null, title: '', description: '', type: 'Documento', date: new Date().toISOString().split('T')[0], hearingType: 'Una', modality: 'Presencial', link: '', time: '10:00', deadlineGoal: '' });
+    };
+
+    return (
+      <div className="animate-in slide-in-from-bottom-8 duration-500 max-w-4xl mx-auto pb-20">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6 no-print">
+          <button onClick={onBack} className="flex items-center text-slate-500 hover:text-indigo-600 gap-1">
+            <ArrowLeft size={18} /> Voltar ao Dashboard
+          </button>
+        </div>
+
+        {/* --- ESTRUTURA DE RELATÓRIO PDF OCULTA (Só aparece no Print) --- */}
+        <div id="printable-report" className="hidden print:block font-serif text-black p-8">
+            <div className="text-center border-b-2 border-black pb-4 mb-6">
+                <h1 className="text-2xl font-bold uppercase">Relatório de Andamento Processual</h1>
+                <p className="text-sm mt-1">JMD Consultoria Jurídica</p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+                <div>
+                    <p><strong>Cliente:</strong> {process.client}</p>
+                    <p><strong>Processo:</strong> {process.cnj}</p>
+                </div>
+                <div className="text-right">
+                    <p><strong>Tribunal:</strong> {process.trt} ({process.uf})</p>
+                    <p><strong>Status:</strong> {process.status}</p>
+                </div>
+            </div>
+
+            <h3 className="text-lg font-bold border-b border-black mb-4 pb-1">Histórico de Movimentações</h3>
+            <div className="space-y-4">
+                {process.movements.filter(m => m.title !== 'Cadastro Inicial').map((m, idx) => (
+                    <div key={idx} className="mb-4 break-inside-avoid">
+                        <div className="flex justify-between font-bold text-sm">
+                            <span>{formatDate(m.date)} - {m.type.toUpperCase()}</span>
+                        </div>
+                        <p className="text-sm font-semibold">{m.title}</p>
+                        <p className="text-sm text-justify">{m.description}</p>
+                    </div>
+                ))}
+            </div>
+            
+            <div className="mt-12 text-center text-xs border-t pt-4">
+                <p>Documento gerado eletronicamente em {new Date().toLocaleDateString('pt-BR')}.</p>
+            </div>
+        </div>
+
+        {/* Ficha Visual (Tela) */}
+        <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden print:hidden">
+          <div className="bg-slate-50 border-b border-slate-200 p-8">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900">{process.client}</h1>
+                <p className="font-mono text-lg text-slate-600 mt-1">{process.cnj}</p>
+              </div>
+              <div className="text-right relative">
+                <button 
+                  onClick={() => setStatusMenuOpen(!statusMenuOpen)}
+                  className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold border cursor-pointer ${getStatusColor(process.status)}`}
+                >
+                  {process.status} <MoreHorizontal size={14} />
+                </button>
+
+                {statusMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-40 bg-white border rounded shadow-lg z-10">
+                        {['Ativo', 'Arquivado', 'Suspenso', 'Recurso', 'Execução'].map(s => (
+                            <button key={s} 
+                                onClick={() => { onUpdateStatus(process.id, s); setStatusMenuOpen(false); }}
+                                className="block w-full text-left px-4 py-2 text-sm hover:bg-slate-50 text-slate-700"
+                            >
+                                {s}
+                            </button>
+                        ))}
+                    </div>
+                )}
+                <p className="text-slate-500 mt-2 font-medium">{process.trt} - {process.uf}</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-2 mt-4 flex-wrap">
+              {process.tags.map(tag => <span key={tag} className="px-3 py-1 bg-slate-200 text-slate-700 rounded-full text-xs font-semibold">{tag}</span>)}
+            </div>
+          </div>
+
+          <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="md:col-span-2">
+              <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><FileText size={20} /> Histórico de Movimentações</h3>
+              
+              {!newMovOpen && (
+                <button onClick={() => { setMovData({ id: null, title: '', description: '', type: 'Documento', date: new Date().toISOString().split('T')[0], hearingType: 'Una', modality: 'Presencial', link: '', time: '10:00', deadlineGoal: '' }); setNewMovOpen(true); }} className="w-full mb-6 py-3 border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-indigo-500 hover:text-indigo-600 transition-all flex items-center justify-center gap-2 no-print">
+                  <PlusCircle size={18} /> Adicionar Nova Movimentação
+                </button>
+              )}
+
+              {newMovOpen && (
+                <form onSubmit={submitMovement} className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-6 animate-in fade-in zoom-in-95 no-print relative">
+                   <div className="flex justify-between items-center mb-3 border-b pb-2">
+                       <span className="font-bold text-slate-700">{movData.id ? 'Editar Movimentação' : 'Nova Movimentação'}</span>
+                       <button type="button" onClick={() => setNewMovOpen(false)}><X size={16} /></button>
+                   </div>
+                   
+                   <div className="grid grid-cols-2 gap-4 mb-3">
+                      <select className="p-2 border rounded" value={movData.type} onChange={e => setMovData({...movData, type: e.target.value})}>
+                        <option>Documento</option>
+                        <option>Audiência</option>
+                        <option>Prazo</option>
+                        <option>Sentença</option>
+                        <option>Admin</option>
+                      </select>
+                      <input type="date" required className="p-2 border rounded" value={movData.date} onChange={e => setMovData({...movData, date: e.target.value})} />
+                   </div>
+
+                   {movData.type === 'Audiência' && (
+                       <div className="bg-orange-50 p-3 rounded border border-orange-200 mb-3 space-y-3">
+                           <div className="grid grid-cols-2 gap-3">
+                               <div>
+                                   <label className="text-xs font-bold text-orange-800">Tipo</label>
+                                   <select className="w-full p-1 border rounded text-sm" value={movData.hearingType} onChange={e => setMovData({...movData, hearingType: e.target.value})}>
+                                       <option>Una</option>
+                                       <option>Inicial</option>
+                                       <option>Instrução</option>
+                                       <option>Julgamento</option>
+                                       <option>Conciliação</option>
+                                   </select>
+                               </div>
+                               <div>
+                                   <label className="text-xs font-bold text-orange-800">Hora</label>
+                                   <input type="time" className="w-full p-1 border rounded text-sm" value={movData.time} onChange={e => setMovData({...movData, time: e.target.value})} />
+                               </div>
+                           </div>
+                           <div>
+                               <label className="text-xs font-bold text-orange-800">Modalidade</label>
+                               <div className="flex gap-4 mt-1">
+                                   <label className="flex items-center gap-1 text-sm"><input type="radio" name="modality" value="Presencial" checked={movData.modality === 'Presencial'} onChange={() => setMovData({...movData, modality: 'Presencial'})} /> Presencial</label>
+                                   <label className="flex items-center gap-1 text-sm"><input type="radio" name="modality" value="Online" checked={movData.modality === 'Online'} onChange={() => setMovData({...movData, modality: 'Online'})} /> Online</label>
+                               </div>
+                           </div>
+                           {movData.modality === 'Online' && (
+                               <input type="text" placeholder="Cole o Link da audiência aqui..." className="w-full p-2 border rounded text-sm" value={movData.link} onChange={e => setMovData({...movData, link: e.target.value})} />
+                           )}
+                       </div>
+                   )}
+
+                   {movData.type === 'Prazo' && (
+                       <div className="bg-red-50 p-3 rounded border border-red-200 mb-3">
+                           <label className="text-xs font-bold text-red-800">Manifestação sobre o que?</label>
+                           <input type="text" placeholder="Ex: Réplica, Cálculos, Laudo Pericial..." className="w-full p-2 border rounded mt-1" 
+                               value={movData.deadlineGoal} onChange={e => setMovData({...movData, deadlineGoal: e.target.value})} />
+                       </div>
+                   )}
+
+                   {movData.type !== 'Audiência' && movData.type !== 'Prazo' && (
+                        <input type="text" placeholder="Título (ex: Despacho do Juiz)" className="w-full p-2 border rounded mb-3" value={movData.title} onChange={e => setMovData({...movData, title: e.target.value})} />
+                   )}
+                   
+                   <div className="relative">
+                        <textarea 
+                            placeholder="Descrição adicional..." 
+                            rows="3" 
+                            className="w-full p-2 border rounded mb-3" 
+                            value={movData.description} 
+                            onChange={e => setMovData({...movData, description: e.target.value})} 
+                        />
+                   </div>
+                   
+                   <div className="flex justify-end gap-2">
+                     <button type="button" onClick={() => setNewMovOpen(false)} className="text-slate-500 text-sm hover:underline">Cancelar</button>
+                     <button type="submit" className="bg-indigo-600 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700 flex items-center gap-2">
+                        <Save size={14} /> Salvar
+                     </button>
+                   </div>
+                </form>
+              )}
+
+              <ProcessTimeline 
+                 movements={process.movements} 
+                 onEdit={startEditing} 
+                 onDelete={(movId) => onDeleteMovement(process.id, movId)}
+              />
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-slate-50 p-5 rounded-xl border border-slate-100 no-print">
+                <h4 className="font-bold text-slate-700 mb-3">Ações Rápidas</h4>
+                <div className="space-y-2">
+                  <button onClick={() => window.print()} className="w-full text-left p-3 bg-white border hover:bg-indigo-50 hover:text-indigo-700 rounded transition-colors text-sm text-slate-600 flex items-center gap-2 font-medium">
+                    <Printer size={16} /> Gerar Relatório PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
 };
 
 // --- APP PRINCIPAL ---
-
 export default function App() {
-  const [auth, setAuth] = useState(false);
-  const [view, setView] = useState('dashboard');
-  const [procs, setProcs] = useState([]);
-  const [selId, setSelId] = useState(null);
-  const [ufFilter, setUfFilter] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [activeView, setActiveView] = useState('dashboard');
+  const [processes, setProcesses] = useState([]);
+  const [selectedProcessId, setSelectedProcessId] = useState(null);
+  const [filterState, setFilterState] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isOnline, setIsOnline] = useState(false);
+
+  const fetchProcesses = async () => {
+    try {
+      const res = await fetch('/api/processes');
+      const contentType = res.headers.get("content-type");
+      if (res.ok && contentType && contentType.indexOf("application/json") !== -1) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+            setProcesses(data);
+            setIsOnline(true);
+            return;
+        }
+      }
+      throw new Error("API falhou ou retornou dados inválidos");
+    } catch (err) {
+      console.warn("API indisponível, usando LocalStorage:", err);
+      setIsOnline(false);
+      const localData = localStorage.getItem('jmd_processes_backup');
+      if (localData) {
+          try {
+              const parsed = JSON.parse(localData);
+              if (Array.isArray(parsed)) setProcesses(parsed);
+          } catch(e) { setProcesses([]); }
+      }
+    }
+  };
 
   useEffect(() => {
-    const data = localStorage.getItem('jmd_db_v5');
-    if (data) try { setProcs(JSON.parse(data)); } catch(e) {}
-  }, []);
+    if (isAuthenticated) {
+        fetchProcesses();
+    }
+  }, [isAuthenticated]);
 
-  useEffect(() => { localStorage.setItem('jmd_db_v5', JSON.stringify(procs)); }, [procs]);
+  useEffect(() => {
+      if (processes.length > 0) {
+          localStorage.setItem('jmd_processes_backup', JSON.stringify(processes));
+      }
+  }, [processes]);
 
-  if (!auth) return <LoginView onLogin={() => setAuth(true)} />;
+  if (!isAuthenticated) {
+    return <LoginView onLogin={() => setIsAuthenticated(true)} />;
+  }
 
-  const handleSave = (np) => { setProcs([np, ...procs]); setView('dashboard'); };
-  const handleAddMov = (pid, m) => { setProcs(procs.map(p => p.id === pid ? {...p, movements: [m, ...p.movements]} : p)); };
-  const handleDelMov = (pid, mid) => { setProcs(procs.map(p => p.id === pid ? {...p, movements: p.movements.filter(x => x.id !== mid)} : p)); };
+  const handleStateClick = (uf) => {
+    setFilterState(uf);
+    setActiveView('list');
+  };
+
+  const handleProcessClick = (id) => {
+    setSelectedProcessId(id);
+    setActiveView('detail');
+  };
+
+  const handleSaveProcess = async (newProcess) => {
+    try {
+      const res = await fetch('/api/processes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newProcess)
+      });
+      if (!res.ok) throw new Error("Falha na API");
+      fetchProcesses();
+    } catch (e) {
+      const updated = [newProcess, ...processes];
+      setProcesses(updated);
+      localStorage.setItem('jmd_processes_backup', JSON.stringify(updated));
+    }
+    setActiveView('dashboard');
+  };
+
+  const handleAddMovement = async (procId, movement) => {
+    const process = processes.find(p => p.id === procId);
+    if (!process) return;
+
+    let newMovements;
+    const existingIndex = (process.movements || []).findIndex(m => m.id === movement.id);
+    
+    if (existingIndex >= 0) {
+        newMovements = [...process.movements];
+        newMovements[existingIndex] = movement;
+    } else {
+        newMovements = [{...movement, id: Date.now().toString()}, ...(process.movements || [])];
+    }
+
+    let updates = { movements: newMovements };
+    if (movement.type === 'Audiência') {
+       updates.nextHearing = `${movement.date}T${movement.time || '00:00'}`;
+    }
+
+    try {
+        await fetch(`/api/processes/${procId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates)
+        });
+        fetchProcesses();
+    } catch (e) {
+        const updatedProcs = processes.map(p => p.id === procId ? { ...p, ...updates } : p);
+        setProcesses(updatedProcs);
+    }
+  };
+
+  const handleDeleteMovement = async (procId, movId) => {
+      const process = processes.find(p => p.id === procId);
+      if (!process) return;
+      
+      const newMovements = (process.movements || []).filter(m => m.id !== movId);
+      try {
+        await fetch(`/api/processes/${procId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ movements: newMovements })
+        });
+        fetchProcesses();
+      } catch (e) {
+          const updatedProcs = processes.map(p => p.id === procId ? { ...p, movements: newMovements } : p);
+          setProcesses(updatedProcs);
+      }
+  };
+
+  const handleChangeStatus = async (procId, newStatus) => {
+    try {
+        await fetch(`/api/processes/${procId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+        fetchProcesses();
+    } catch (e) {
+        const updatedProcs = processes.map(p => p.id === procId ? { ...p, status: newStatus } : p);
+        setProcesses(updatedProcs);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans">
       <style>{`
-        body { margin: 0; background-color: #f8fafc; font-family: sans-serif; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        @media print {
+          .no-print { display: none !important; }
+          .print:hidden { display: none !important; }
+          body { background: white; }
+          .sidebar { display: none; }
+          #printable-report { display: block !important; width: 100%; height: 100%; }
+        }
+        body { background-color: #f8fafc; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .animate-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       `}</style>
-      <aside className="w-64 bg-slate-900 text-white flex flex-col fixed h-full transition-all z-20">
-        <div className="p-8 border-b border-slate-800 text-center font-bold text-xl tracking-tight text-indigo-400 uppercase">JMD Processos</div>
-        <nav className="flex-1 py-6 px-4 space-y-1">
-          <button onClick={() => { setUfFilter(null); setView('dashboard'); }} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-indigo-600' : 'text-slate-400 hover:bg-slate-800'}`}><LayoutDashboard size={18} /> Visão Geral</button>
-          <button onClick={() => { setUfFilter(null); setView('list'); }} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm font-medium transition-colors ${view === 'list' ? 'bg-indigo-600' : 'text-slate-400 hover:bg-slate-800'}`}><Search size={18} /> Processos</button>
-        </nav>
-        <div className="p-6 border-t border-slate-800"><button onClick={() => setView('form')} className="w-full bg-indigo-600 hover:bg-indigo-700 p-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95"><PlusCircle size={18} /> Novo Processo</button></div>
-      </aside>
-      <main className="flex-1 ml-64 p-10 overflow-y-auto">
-        <ErrorBoundary>
-          {view === 'dashboard' && <DashboardView processes={procs} onStateClick={(uf) => { setUfFilter(uf); setView('list'); }} />}
-          {view === 'list' && <ListView processes={procs} filterState={ufFilter} setFilterState={setUfFilter} onProcessClick={(id) => { setSelId(id); setView('detail'); }} />}
-          {view === 'form' && <FormView onSave={handleSave} onCancel={() => setView('dashboard')} />}
-          {view === 'detail' && <DetailView process={procs.find(x => x.id === selId)} onBack={() => setView('list')} onAddMovement={handleAddMov} onDeleteMovement={handleDelMov} />}
-        </ErrorBoundary>
-      </main>
+
+      <ErrorBoundary>
+        <aside className="w-20 lg:w-64 bg-slate-900 text-white flex flex-col fixed h-full z-10 transition-all sidebar">
+          <div className="p-6 flex items-center gap-3 border-b border-slate-800">
+            <span className="font-bold text-lg tracking-tight hidden lg:block text-center w-full">JMD Processos</span>
+          </div>
+
+          <nav className="flex-1 py-6 space-y-2 px-3">
+            <button onClick={() => setActiveView('dashboard')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'dashboard' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+              <LayoutDashboard size={20} /> <span className="hidden lg:block">Visão Geral</span>
+            </button>
+            <button onClick={() => setActiveView('list')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+              <Search size={20} /> <span className="hidden lg:block">Processos</span>
+            </button>
+            <button onClick={() => setActiveView('calendar')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'calendar' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+              <CalendarIcon size={20} /> <span className="hidden lg:block">Agenda Interna</span>
+            </button>
+            <button onClick={() => setActiveView('calculator')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'calculator' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+              <Calculator size={20} /> <span className="hidden lg:block">Calculadora</span>
+            </button>
+          </nav>
+
+          <div className="p-4 border-t border-slate-800">
+            <button onClick={() => setActiveView('form')} className="w-full flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white py-3 rounded-lg shadow-lg">
+              <PlusCircle size={20} /> <span className="hidden lg:block font-bold">Novo Processo</span>
+            </button>
+          </div>
+        </aside>
+
+        <main className="flex-1 ml-20 lg:ml-64 p-4 lg:p-8 overflow-y-auto h-full">
+          {activeView === 'dashboard' && <DashboardView processes={processes} onStateClick={handleStateClick} />}
+          {activeView === 'list' && <ListView processes={processes} filterState={filterState} setFilterState={setFilterState} searchTerm={searchTerm} setSearchTerm={setSearchTerm} handleProcessClick={handleProcessClick} />}
+          
+          {activeView === 'form' && <FormView onSave={handleSaveProcess} onCancel={() => setActiveView('dashboard')} />}
+          
+          {activeView === 'detail' && <ProcessDetailView process={processes.find(x => x.id === selectedProcessId)} onBack={() => setActiveView('list')} onUpdateStatus={handleChangeStatus} onAddMovement={handleAddMovement} onDeleteMovement={handleDeleteMovement} />}
+          
+          {activeView === 'calendar' && <InternalCalendarView processes={processes} handleProcessClick={handleProcessClick} />}
+          {activeView === 'calculator' && <AdvancedCalculatorView />}
+        </main>
+      </ErrorBoundary>
     </div>
   );
 }
