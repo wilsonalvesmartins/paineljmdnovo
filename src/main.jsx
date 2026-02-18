@@ -26,12 +26,14 @@ import {
   Trash2,
   Save,
   CalendarDays,
-  HardDrive
+  HardDrive,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 
 /**
  * JMD PROCESSOS TRABALHISTAS
- * Sistema de Gestão Jurídica Inteligente - Versão 3.5 (Production Ready)
+ * Sistema de Gestão Jurídica Inteligente - Versão 3.6 (Crash Proof)
  */
 
 // --- DADOS DE CONFIGURAÇÃO (TRTs) ---
@@ -70,16 +72,19 @@ const UF_LIST = [
 // --- UTILITÁRIOS ---
 const formatDate = (dateString) => {
   if (!dateString) return '-';
-  if (dateString.includes('T')) {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('pt-BR');
-  } else {
-      const [year, month, day] = dateString.split('-');
-      return `${day}/${month}/${year}`;
-  }
+  try {
+    if (dateString.includes('T')) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('pt-BR');
+    } else {
+        const [year, month, day] = dateString.split('-');
+        return `${day}/${month}/${year}`;
+    }
+  } catch (e) { return '-'; }
 };
 
 const maskCNJ = (value) => {
+  if (!value) return '';
   return value
     .replace(/\D/g, '')
     .replace(/^(\d{7})(\d)/, '$1-$2')
@@ -100,6 +105,40 @@ const getStatusColor = (status) => {
     default: return 'bg-gray-100 text-gray-800';
   }
 };
+
+// --- ERROR BOUNDARY (Evita tela branca total) ---
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("Erro capturado:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center h-screen bg-slate-50 flex-col gap-4 p-8 text-center">
+          <AlertTriangle size={48} className="text-red-500" />
+          <h2 className="text-2xl font-bold text-slate-800">Ocorreu um erro inesperado</h2>
+          <p className="text-slate-600 bg-slate-100 p-4 rounded font-mono text-sm max-w-lg overflow-auto">
+            {this.state.error?.toString()}
+          </p>
+          <button 
+            onClick={() => { localStorage.clear(); window.location.reload(); }}
+            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          >
+            Limpar Cache e Recarregar
+          </button>
+        </div>
+      );
+    }
+    return this.props.children; 
+  }
+}
 
 // --- COMPONENTES ---
 
@@ -169,11 +208,12 @@ const LoginView = ({ onLogin }) => {
   );
 };
 
-const BrazilMap = ({ processes, onStateClick }) => {
+const BrazilMap = ({ processes = [], onStateClick }) => {
   const [hoveredState, setHoveredState] = useState(null);
 
   const stats = useMemo(() => {
     const data = {};
+    if (!Array.isArray(processes)) return data; // Proteção contra crash
     processes.forEach(p => {
       if (!data[p.uf]) data[p.uf] = { total: 0, trt2: 0, trt15: 0, active: 0 };
       data[p.uf].total++;
@@ -280,7 +320,7 @@ const BrazilMap = ({ processes, onStateClick }) => {
 };
 
 const ProcessTimeline = ({ movements, onEdit, onDelete }) => {
-  const visibleMovements = movements.filter(m => m.title !== 'Cadastro Inicial');
+  const visibleMovements = (movements || []).filter(m => m.title !== 'Cadastro Inicial');
 
   return (
     <div className="space-y-6 ml-2">
@@ -292,18 +332,10 @@ const ProcessTimeline = ({ movements, onEdit, onDelete }) => {
           
           <div className="flex flex-col gap-2 relative">
             <div className="absolute right-0 top-0 hidden group-hover:flex gap-2 no-print">
-                <button 
-                    onClick={() => onEdit(mov)} 
-                    className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded"
-                    title="Editar"
-                >
+                <button onClick={() => onEdit(mov)} className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded" title="Editar">
                     <Edit2 size={14} />
                 </button>
-                <button 
-                    onClick={() => onDelete(mov.id)} 
-                    className="p-1 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded"
-                    title="Excluir"
-                >
+                <button onClick={() => onDelete(mov.id)} className="p-1 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded" title="Excluir">
                     <Trash2 size={14} />
                 </button>
             </div>
@@ -487,24 +519,43 @@ function App() {
   const [selectedProcessId, setSelectedProcessId] = useState(null);
   const [filterState, setFilterState] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isOnline, setIsOnline] = useState(true); // Sempre online pois é local
+  const [isOnline, setIsOnline] = useState(true);
 
-  // Load Data from Local API
+  // Load Data from Local API (COM PROTEÇÃO CONTRA CRASH)
   const fetchProcesses = async () => {
     try {
       const res = await fetch('/api/processes');
-      const data = await res.json();
-      setProcesses(data);
+      
+      // Verifica se a resposta não é HTML (erro 404/500 do servidor web)
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        const data = await res.json();
+        
+        // SÓ ATUALIZA SE FOR UM ARRAY VÁLIDO
+        if (Array.isArray(data)) {
+            setProcesses(data);
+            setIsOnline(true);
+        } else {
+            console.error("Dados inválidos recebidos (não é array):", data);
+            // Mantém o estado anterior ou define como vazio, mas NÃO define como objeto de erro
+            setProcesses([]); 
+            setIsOnline(false);
+        }
+      } else {
+        console.warn("Resposta da API não é JSON (possível erro de servidor):", await res.text());
+        setProcesses([]); // Fallback seguro
+        setIsOnline(false);
+      }
     } catch (err) {
-      console.error("Erro ao buscar processos da API", err);
+      console.error("Erro fatal no fetch:", err);
       setIsOnline(false);
+      setProcesses([]); // Fallback seguro
     }
   };
 
   useEffect(() => {
     if (isAuthenticated) {
         fetchProcesses();
-        // Polling para atualizar dados (simples)
         const interval = setInterval(fetchProcesses, 5000); 
         return () => clearInterval(interval);
     }
@@ -543,19 +594,14 @@ function App() {
     const process = processes.find(p => p.id === procId);
     if (!process) return;
 
-    // Lógica de mesclagem (mesma do server, mas aqui enviamos o update)
-    // Para simplificar, o servidor espera um objeto que será mesclado.
-    // O ideal seria enviar apenas a nova movimentação para uma rota específica,
-    // mas vamos atualizar o array de movimentações inteiro.
-    
     let newMovements;
-    const existingIndex = process.movements.findIndex(m => m.id === movement.id);
+    const existingIndex = (process.movements || []).findIndex(m => m.id === movement.id);
     
     if (existingIndex >= 0) {
         newMovements = [...process.movements];
         newMovements[existingIndex] = movement;
     } else {
-        newMovements = [{...movement, id: Date.now().toString()}, ...process.movements];
+        newMovements = [{...movement, id: Date.now().toString()}, ...(process.movements || [])];
     }
 
     let updates = { movements: newMovements };
@@ -577,7 +623,7 @@ function App() {
       const process = processes.find(p => p.id === procId);
       if (!process) return;
       
-      const newMovements = process.movements.filter(m => m.id !== movId);
+      const newMovements = (process.movements || []).filter(m => m.id !== movId);
       try {
         await fetch(`/api/processes/${procId}`, {
             method: 'PUT',
@@ -603,8 +649,226 @@ function App() {
     window.print();
   };
 
-  // Reutiliza DashboardView, ListView, FormView etc com as novas props
-  // (Código das views permanece o mesmo visualmente, mas usa as funções async acima)
+  // --- SAFE VIEWS (Protegidas contra lista nula) ---
+
+  const DashboardView = () => {
+    // PROTEÇÃO EXTRA: Garante que processes é array antes de filtrar
+    const safeProcesses = Array.isArray(processes) ? processes : [];
+    
+    const activeCount = safeProcesses.filter(p => p.status === 'Ativo').length;
+    
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    const today = new Date();
+    
+    const upcomingHearings = safeProcesses.reduce((acc, p) => {
+        if (p.nextHearing) {
+            const hDate = new Date(p.nextHearing);
+            if (hDate >= today && hDate <= nextWeek) return acc + 1;
+        }
+        return acc;
+    }, 0);
+
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+            <div>
+              <p className="text-slate-500 text-sm font-medium">Audiências (7 dias)</p>
+              <h3 className="text-2xl font-bold text-slate-800">{upcomingHearings}</h3>
+            </div>
+            <div className="p-3 bg-orange-100 text-orange-600 rounded-lg"><Gavel size={24} /></div>
+          </div>
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+            <div>
+              <p className="text-slate-500 text-sm font-medium">Total Processos</p>
+              <h3 className="text-2xl font-bold text-slate-800">{safeProcesses.length}</h3>
+            </div>
+            <div className="p-3 bg-slate-100 text-slate-600 rounded-lg"><FileText size={24} /></div>
+          </div>
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+            <div>
+              <p className="text-slate-500 text-sm font-medium">Ativos</p>
+              <h3 className="text-2xl font-bold text-slate-800">{activeCount}</h3>
+            </div>
+            <div className="p-3 bg-blue-100 text-blue-600 rounded-lg"><Briefcase size={24} /></div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><MapPin size={18} /> Mapa Nacional</h3>
+            <BrazilMap processes={safeProcesses} onStateClick={handleStateClick} />
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 overflow-y-auto max-h-[460px]">
+            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Clock size={18} /> Radar de Atividade</h3>
+            <div className="space-y-4">
+              {safeProcesses
+                .filter(p => p.movements && p.movements.length > 0)
+                .sort((a, b) => new Date(b.movements[0].date) - new Date(a.movements[0].date))
+                .slice(0, 5)
+                .map(p => (
+                  <div key={p.id} onClick={() => handleProcessClick(p.id)} className="cursor-pointer group hover:bg-slate-50 p-2 rounded transition-colors">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="text-xs font-mono text-slate-400">{p.trt}</span>
+                      <span className="text-xs text-slate-400">{formatDate(p.movements[0].date)}</span>
+                    </div>
+                    <p className="font-medium text-sm text-slate-800 group-hover:text-indigo-600 truncate">{p.client}</p>
+                    <p className="text-xs text-slate-500 truncate">{p.movements[0].title}</p>
+                  </div>
+              ))}
+              {safeProcesses.length === 0 && <p className="text-center text-slate-400 text-sm py-4">Nenhum processo encontrado.</p>}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const ListView = () => {
+    const safeProcesses = Array.isArray(processes) ? processes : [];
+    let list = filterState ? safeProcesses.filter(p => p.uf === filterState) : safeProcesses;
+
+    if (searchTerm) {
+        list = list.filter(p => 
+            p.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.cnj.includes(searchTerm) ||
+            (p.tags && p.tags.some(t => t.toLowerCase().includes(searchTerm.toLowerCase())))
+        );
+    }
+
+    return (
+      <div className="animate-in slide-in-from-right duration-300">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-4">
+            <button onClick={() => { setFilterState(null); setActiveView('dashboard'); }} className="p-2 hover:bg-slate-200 rounded-full">
+              <ArrowLeft size={20} />
+            </button>
+            <h2 className="text-2xl font-bold text-slate-800">
+              {filterState ? `Processos em ${filterState}` : 'Todos os Processos'}
+            </h2>
+            <span className="bg-slate-200 text-slate-700 px-3 py-1 rounded-full text-sm font-bold">{list.length}</span>
+          </div>
+
+          <div className="relative w-full md:w-64">
+             <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+             <input 
+                type="text" 
+                placeholder="Pesquisar cliente, CNJ..." 
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+             />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+              <tr>
+                <th className="p-4 font-medium">Cliente / Processo</th>
+                <th className="p-4 font-medium">Tribunal</th>
+                <th className="p-4 font-medium">Status</th>
+                <th className="p-4 font-medium">Última Mov.</th>
+                <th className="p-4 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {list.map(p => (
+                <tr key={p.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => handleProcessClick(p.id)}>
+                  <td className="p-4">
+                    <div className="font-medium text-slate-900">{p.client}</div>
+                    <div className="text-xs text-slate-500 font-mono mt-0.5">{p.cnj}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="text-sm text-slate-700">{p.trt}</div>
+                    <div className="text-xs text-slate-400">{p.uf}</div>
+                  </td>
+                  <td className="p-4">
+                    <span className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(p.status)}`}>{p.status}</span>
+                  </td>
+                  <td className="p-4">
+                    <div className="text-sm text-slate-600 truncate max-w-[150px]">
+                      {p.movements && p.movements[0] ? p.movements[0].title : '-'}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      {p.movements && p.movements[0] ? formatDate(p.movements[0].date) : '-'}
+                    </div>
+                  </td>
+                  <td className="p-4 text-right">
+                    <ChevronRight size={18} className="text-slate-300 group-hover:text-indigo-600 inline-block" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {list.length === 0 && <div className="p-12 text-center text-slate-400">Nenhum processo encontrado.</div>}
+        </div>
+      </div>
+    );
+  };
+
+  const InternalCalendarView = () => {
+      const safeProcesses = Array.isArray(processes) ? processes : [];
+      const events = safeProcesses.flatMap(p => {
+          return (p.movements || [])
+            .filter(m => m.type === 'Audiência' || m.type === 'Prazo')
+            .map(m => ({
+                id: p.id + m.date,
+                date: m.date,
+                time: m.time || '00:00',
+                type: m.type,
+                title: m.title,
+                client: p.client,
+                processId: p.id
+            }));
+      }).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      return (
+        <div className="animate-in fade-in max-w-4xl mx-auto">
+            <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                <CalendarIcon className="text-indigo-600" /> Agenda Interna do Escritório
+            </h2>
+
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-4 bg-slate-50 border-b border-slate-200 font-medium text-slate-500 flex justify-between">
+                    <span>Próximos Compromissos</span>
+                    <span>{events.length} eventos encontrados</span>
+                </div>
+                <div className="divide-y divide-slate-100">
+                    {events.length === 0 ? (
+                        <div className="p-8 text-center text-slate-400">Nenhum evento agendado.</div>
+                    ) : (
+                        events.map((evt, idx) => (
+                            <div key={idx} onClick={() => handleProcessClick(evt.processId)} className="p-4 hover:bg-slate-50 cursor-pointer flex items-center gap-4 group transition-colors">
+                                <div className="text-center min-w-[60px]">
+                                    <span className="block text-xs font-bold text-slate-400 uppercase">{new Date(evt.date).toLocaleDateString('pt-BR', { weekday: 'short' })}</span>
+                                    <span className="block text-xl font-bold text-slate-800">{new Date(evt.date).getDate()}</span>
+                                    <span className="block text-xs text-slate-500">{new Date(evt.date).toLocaleDateString('pt-BR', { month: 'short' })}</span>
+                                </div>
+                                <div className={`w-1 h-12 rounded-full ${evt.type === 'Audiência' ? 'bg-orange-400' : 'bg-red-400'}`}></div>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className={`text-xs px-2 py-0.5 rounded font-bold uppercase ${
+                                            evt.type === 'Audiência' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'
+                                        }`}>
+                                            {evt.type}
+                                        </span>
+                                        {evt.type === 'Audiência' && <span className="text-xs text-slate-500 flex items-center gap-1"><Clock size={12} /> {evt.time}</span>}
+                                    </div>
+                                    <h4 className="font-bold text-slate-800 group-hover:text-indigo-600">{evt.title}</h4>
+                                    <p className="text-sm text-slate-500">{evt.client}</p>
+                                </div>
+                                <ChevronRight className="text-slate-300 group-hover:text-indigo-600" size={20} />
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+        </div>
+      );
+  };
 
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans">
@@ -618,42 +882,45 @@ function App() {
         }
       `}</style>
 
-      <aside className="w-20 lg:w-64 bg-slate-900 text-white flex flex-col fixed h-full z-10 transition-all sidebar">
-        <div className="p-6 flex items-center gap-3 border-b border-slate-800">
-          <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center font-bold text-white">J</div>
-          <span className="font-bold text-lg tracking-tight hidden lg:block">JMD Processos</span>
-        </div>
+      {/* ERROR BOUNDARY WRAPPER - BLINDAGEM CONTRA CRASH */}
+      <ErrorBoundary>
+        <aside className="w-20 lg:w-64 bg-slate-900 text-white flex flex-col fixed h-full z-10 transition-all sidebar">
+          <div className="p-6 flex items-center gap-3 border-b border-slate-800">
+            <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center font-bold text-white">J</div>
+            <span className="font-bold text-lg tracking-tight hidden lg:block">JMD Processos</span>
+          </div>
 
-        <nav className="flex-1 py-6 space-y-2 px-3">
-          <button onClick={() => setActiveView('dashboard')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'dashboard' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-            <LayoutDashboard size={20} /> <span className="hidden lg:block">Visão Geral</span>
-          </button>
-          <button onClick={() => setActiveView('list')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-            <Search size={20} /> <span className="hidden lg:block">Processos</span>
-          </button>
-          <button onClick={() => setActiveView('calendar')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'calendar' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-            <CalendarIcon size={20} /> <span className="hidden lg:block">Agenda Interna</span>
-          </button>
-          <button onClick={() => setActiveView('calculator')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'calculator' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-            <Calculator size={20} /> <span className="hidden lg:block">Calculadora</span>
-          </button>
-        </nav>
+          <nav className="flex-1 py-6 space-y-2 px-3">
+            <button onClick={() => setActiveView('dashboard')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'dashboard' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+              <LayoutDashboard size={20} /> <span className="hidden lg:block">Visão Geral</span>
+            </button>
+            <button onClick={() => setActiveView('list')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+              <Search size={20} /> <span className="hidden lg:block">Processos</span>
+            </button>
+            <button onClick={() => setActiveView('calendar')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'calendar' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+              <CalendarIcon size={20} /> <span className="hidden lg:block">Agenda Interna</span>
+            </button>
+            <button onClick={() => setActiveView('calculator')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'calculator' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+              <Calculator size={20} /> <span className="hidden lg:block">Calculadora</span>
+            </button>
+          </nav>
 
-        <div className="p-4 border-t border-slate-800">
-           <button onClick={() => setActiveView('form')} className="w-full flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white py-3 rounded-lg shadow-lg">
-             <PlusCircle size={20} /> <span className="hidden lg:block font-bold">Novo Processo</span>
-           </button>
-        </div>
-      </aside>
+          <div className="p-4 border-t border-slate-800">
+            <button onClick={() => setActiveView('form')} className="w-full flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white py-3 rounded-lg shadow-lg">
+              <PlusCircle size={20} /> <span className="hidden lg:block font-bold">Novo Processo</span>
+            </button>
+          </div>
+        </aside>
 
-      <main className="flex-1 ml-20 lg:ml-64 p-4 lg:p-8 overflow-y-auto h-full">
-        {activeView === 'dashboard' && <DashboardView />}
-        {activeView === 'list' && <ListView />}
-        {activeView === 'form' && <FormView />}
-        {activeView === 'detail' && <ProcessDetailView />}
-        {activeView === 'calendar' && <InternalCalendarView />}
-        {activeView === 'calculator' && <AdvancedCalculatorView />}
-      </main>
+        <main className="flex-1 ml-20 lg:ml-64 p-4 lg:p-8 overflow-y-auto h-full">
+          {activeView === 'dashboard' && <DashboardView />}
+          {activeView === 'list' && <ListView />}
+          {activeView === 'form' && <FormView />}
+          {activeView === 'detail' && <ProcessDetailView />}
+          {activeView === 'calendar' && <InternalCalendarView />}
+          {activeView === 'calculator' && <AdvancedCalculatorView />}
+        </main>
+      </ErrorBoundary>
     </div>
   );
 }
