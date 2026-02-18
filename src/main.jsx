@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 
-// AQUI ESTÁ A CORREÇÃO: O CSS ESTÁ ATIVADO AGORA
-import './index.css'; 
+// ⚠️ IMPORTANTE: No seu GitHub, REMOVA AS BARRAS (//) abaixo para o estilo funcionar!
+// No preview do chat, mantemos comentado para evitar erro de build.
+// import './index.css'; 
 
 import { 
   LayoutDashboard, 
@@ -35,7 +36,7 @@ import {
 
 /**
  * JMD PROCESSOS TRABALHISTAS
- * Versão 4.0 (CSS Ativo & Self-Hosted Fix)
+ * Sistema de Gestão Jurídica Inteligente - Versão 3.9 (Fix Form & CSS Import)
  */
 
 // --- DADOS DE CONFIGURAÇÃO (TRTs) ---
