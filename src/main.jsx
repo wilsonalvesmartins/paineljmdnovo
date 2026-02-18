@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
-// AQUI ESTAVA FALTANDO O CSS:
+// ESTA LINHA É FUNDAMENTAL PARA O ESTILO:
 import './index.css'; 
 import { 
   LayoutDashboard, 
@@ -31,7 +31,7 @@ import {
 
 /**
  * JMD PROCESSOS TRABALHISTAS
- * Sistema de Gestão Jurídica Inteligente - Versão 3.4 (CSS Fix)
+ * Sistema de Gestão Jurídica Inteligente - Versão 3.5 (Production Ready)
  */
 
 // --- DADOS DE CONFIGURAÇÃO (TRTs) ---
@@ -124,7 +124,7 @@ const LoginView = ({ onLogin }) => {
           <div className="w-16 h-16 bg-indigo-600 text-white rounded-xl mx-auto flex items-center justify-center mb-4">
             <Lock size={32} />
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">JMD Processos Trabalhistas</h1>
+          <h1 className="text-2xl font-bold text-slate-800">JMD Processos</h1>
           <p className="text-slate-500">Acesso Restrito</p>
         </div>
         
