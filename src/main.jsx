@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 
-// ⚠️ IMPORTANTE: No seu GitHub, REMOVA AS BARRAS (//) abaixo para o estilo funcionar!
-// import './index.css'; 
+// AQUI ESTÁ A CORREÇÃO: O CSS ESTÁ ATIVADO AGORA
+import './index.css'; 
 
 import { 
   LayoutDashboard, 
@@ -35,7 +35,7 @@ import {
 
 /**
  * JMD PROCESSOS TRABALHISTAS
- * Versão 3.9 (Fix Form & CSS Import)
+ * Versão 4.0 (CSS Ativo & Self-Hosted Fix)
  */
 
 // --- DADOS DE CONFIGURAÇÃO (TRTs) ---
