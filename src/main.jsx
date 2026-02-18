@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
+// AQUI ESTAVA FALTANDO O CSS:
+import './index.css'; 
 import { 
   LayoutDashboard, 
   PlusCircle, 
@@ -29,7 +31,7 @@ import {
 
 /**
  * JMD PROCESSOS TRABALHISTAS
- * Versão 4.0 (Self-Hosted VPS Edition)
+ * Sistema de Gestão Jurídica Inteligente - Versão 3.4 (CSS Fix)
  */
 
 // --- DADOS DE CONFIGURAÇÃO (TRTs) ---
@@ -122,7 +124,7 @@ const LoginView = ({ onLogin }) => {
           <div className="w-16 h-16 bg-indigo-600 text-white rounded-xl mx-auto flex items-center justify-center mb-4">
             <Lock size={32} />
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">JMD Processos</h1>
+          <h1 className="text-2xl font-bold text-slate-800">JMD Processos Trabalhistas</h1>
           <p className="text-slate-500">Acesso Restrito</p>
         </div>
         
