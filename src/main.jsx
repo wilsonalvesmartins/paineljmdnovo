@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
-
-// ✅ CORREÇÃO 1: CSS DESCOMENTADO PARA FUNCIONAR O LAYOUT
 import './index.css'; 
 
 import { 
@@ -33,12 +31,6 @@ import {
   WifiOff
 } from 'lucide-react';
 
-/**
- * JMD PROCESSOS TRABALHISTAS
- * Versão 4.1 (CSS Fix & Hybrid Storage)
- */
-
-// --- DADOS DE CONFIGURAÇÃO (TRTs) ---
 const TRT_REGIONS = [
   { region: '1ª Região', trt: 'TRT-1', states: ['RJ'], name: 'Rio de Janeiro' },
   { region: '2ª Região', trt: 'TRT-2', states: ['SP'], name: 'SP - Capital/Litoral' },
@@ -71,7 +63,6 @@ const UF_LIST = [
   'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
 ];
 
-// --- UTILITÁRIOS ---
 const formatDate = (dateString) => {
   if (!dateString) return '-';
   try {
@@ -108,7 +99,6 @@ const getStatusColor = (status) => {
   }
 };
 
-// --- ERROR BOUNDARY ---
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -141,8 +131,6 @@ class ErrorBoundary extends React.Component {
     return this.props.children; 
   }
 }
-
-// --- COMPONENTES ---
 
 const LoginView = ({ onLogin }) => {
   const [user, setUser] = useState('');
@@ -366,9 +354,7 @@ const AdvancedCalculatorView = () => {
     );
 };
 
-// --- FORM VIEW CORRIGIDO ---
 const FormView = ({ onSave, onCancel }) => {
-    // Inicializa TRT com base no estado inicial SP (TRT-2)
     const [formData, setFormData] = useState({
       client: '',
       uf: 'SP',
@@ -463,7 +449,6 @@ const FormView = ({ onSave, onCancel }) => {
     );
 };
 
-// --- MAIN APP ---
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
@@ -473,7 +458,6 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isOnline, setIsOnline] = useState(false);
 
-  // Load Data with HYBRID FALLBACK (API -> LocalStorage)
   const fetchProcesses = async () => {
     try {
       const res = await fetch('/api/processes');
@@ -488,13 +472,13 @@ function App() {
       }
       throw new Error("API falhou ou retornou dados inválidos");
     } catch (err) {
-      // Fallback para LocalStorage se a API falhar
       console.warn("API indisponível, usando LocalStorage:", err);
       setIsOnline(false);
       const localData = localStorage.getItem('jmd_processes_backup');
       if (localData) {
           try {
-              setProcesses(JSON.parse(localData));
+              const parsed = JSON.parse(localData);
+              if (Array.isArray(parsed)) setProcesses(parsed);
           } catch(e) { setProcesses([]); }
       }
     }
@@ -508,7 +492,6 @@ function App() {
     }
   }, [isAuthenticated]);
 
-  // Salva backup local sempre que processes mudar
   useEffect(() => {
       if (processes.length > 0) {
           localStorage.setItem('jmd_processes_backup', JSON.stringify(processes));
@@ -519,7 +502,6 @@ function App() {
     return <LoginView onLogin={() => setIsAuthenticated(true)} />;
   }
 
-  // --- ACTIONS (Hybrid) ---
   const handleStateClick = (uf) => {
     setFilterState(uf);
     setActiveView('list');
@@ -531,7 +513,6 @@ function App() {
   };
 
   const handleSaveProcess = async (newProcess) => {
-    // Tenta API primeiro
     try {
       const res = await fetch('/api/processes', {
         method: 'POST',
@@ -541,7 +522,6 @@ function App() {
       if (!res.ok) throw new Error("Falha na API");
       fetchProcesses();
     } catch (e) {
-      // Fallback Local
       const updated = [newProcess, ...processes];
       setProcesses(updated);
       localStorage.setItem('jmd_processes_backup', JSON.stringify(updated));
@@ -576,7 +556,6 @@ function App() {
         });
         fetchProcesses();
     } catch (e) {
-        // Fallback Local Update
         const updatedProcs = processes.map(p => p.id === procId ? { ...p, ...updates } : p);
         setProcesses(updatedProcs);
     }
@@ -619,6 +598,465 @@ function App() {
   };
 
   const safeProcesses = Array.isArray(processes) ? processes : [];
+
+  const DashboardView = () => {
+    const activeCount = safeProcesses.filter(p => p.status === 'Ativo').length;
+    
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    const today = new Date();
+    
+    const upcomingHearings = safeProcesses.reduce((acc, p) => {
+        if (p.nextHearing) {
+            const hDate = new Date(p.nextHearing);
+            if (hDate >= today && hDate <= nextWeek) return acc + 1;
+        }
+        return acc;
+    }, 0);
+
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+            <div>
+              <p className="text-slate-500 text-sm font-medium">Audiências (7 dias)</p>
+              <h3 className="text-2xl font-bold text-slate-800">{upcomingHearings}</h3>
+            </div>
+            <div className="p-3 bg-orange-100 text-orange-600 rounded-lg"><Gavel size={24} /></div>
+          </div>
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+            <div>
+              <p className="text-slate-500 text-sm font-medium">Total Processos</p>
+              <h3 className="text-2xl font-bold text-slate-800">{safeProcesses.length}</h3>
+            </div>
+            <div className="p-3 bg-slate-100 text-slate-600 rounded-lg"><FileText size={24} /></div>
+          </div>
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+            <div>
+              <p className="text-slate-500 text-sm font-medium">Ativos</p>
+              <h3 className="text-2xl font-bold text-slate-800">{activeCount}</h3>
+            </div>
+            <div className="p-3 bg-blue-100 text-blue-600 rounded-lg"><Briefcase size={24} /></div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><MapPin size={18} /> Mapa Nacional</h3>
+            <BrazilMap processes={safeProcesses} onStateClick={handleStateClick} />
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 overflow-y-auto max-h-[460px]">
+            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Clock size={18} /> Radar de Atividade</h3>
+            <div className="space-y-4">
+              {safeProcesses
+                .filter(p => p.movements && p.movements.length > 0)
+                .sort((a, b) => new Date(b.movements[0].date) - new Date(a.movements[0].date))
+                .slice(0, 5)
+                .map(p => (
+                  <div key={p.id} onClick={() => handleProcessClick(p.id)} className="cursor-pointer group hover:bg-slate-50 p-2 rounded transition-colors">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="text-xs font-mono text-slate-400">{p.trt}</span>
+                      <span className="text-xs text-slate-400">{formatDate(p.movements[0].date)}</span>
+                    </div>
+                    <p className="font-medium text-sm text-slate-800 group-hover:text-indigo-600 truncate">{p.client}</p>
+                    <p className="text-xs text-slate-500 truncate">{p.movements[0].title}</p>
+                  </div>
+              ))}
+              {safeProcesses.length === 0 && <p className="text-center text-slate-400 text-sm py-4">Nenhum processo encontrado.</p>}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const ListView = () => {
+    let list = filterState ? safeProcesses.filter(p => p.uf === filterState) : safeProcesses;
+
+    if (searchTerm) {
+        list = list.filter(p => 
+            p.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.cnj.includes(searchTerm) ||
+            (p.tags && p.tags.some(t => t.toLowerCase().includes(searchTerm.toLowerCase())))
+        );
+    }
+
+    return (
+      <div className="animate-in slide-in-from-right duration-300">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-4">
+            <button onClick={() => { setFilterState(null); setActiveView('dashboard'); }} className="p-2 hover:bg-slate-200 rounded-full">
+              <ArrowLeft size={20} />
+            </button>
+            <h2 className="text-2xl font-bold text-slate-800">
+              {filterState ? `Processos em ${filterState}` : 'Todos os Processos'}
+            </h2>
+            <span className="bg-slate-200 text-slate-700 px-3 py-1 rounded-full text-sm font-bold">{list.length}</span>
+          </div>
+
+          <div className="relative w-full md:w-64">
+             <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+             <input 
+                type="text" 
+                placeholder="Pesquisar cliente, CNJ..." 
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+             />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+              <tr>
+                <th className="p-4 font-medium">Cliente / Processo</th>
+                <th className="p-4 font-medium">Tribunal</th>
+                <th className="p-4 font-medium">Status</th>
+                <th className="p-4 font-medium">Última Mov.</th>
+                <th className="p-4 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {list.map(p => (
+                <tr key={p.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => handleProcessClick(p.id)}>
+                  <td className="p-4">
+                    <div className="font-medium text-slate-900">{p.client}</div>
+                    <div className="text-xs text-slate-500 font-mono mt-0.5">{p.cnj}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="text-sm text-slate-700">{p.trt}</div>
+                    <div className="text-xs text-slate-400">{p.uf}</div>
+                  </td>
+                  <td className="p-4">
+                    <span className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(p.status)}`}>{p.status}</span>
+                  </td>
+                  <td className="p-4">
+                    <div className="text-sm text-slate-600 truncate max-w-[150px]">
+                      {p.movements && p.movements[0] ? p.movements[0].title : '-'}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      {p.movements && p.movements[0] ? formatDate(p.movements[0].date) : '-'}
+                    </div>
+                  </td>
+                  <td className="p-4 text-right">
+                    <ChevronRight size={18} className="text-slate-300 group-hover:text-indigo-600 inline-block" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {list.length === 0 && <div className="p-12 text-center text-slate-400">Nenhum processo encontrado.</div>}
+        </div>
+      </div>
+    );
+  };
+
+  const ProcessDetailView = () => {
+    const process = processes.find(p => p.id === selectedProcessId);
+    if (!process) return null;
+
+    const [newMovOpen, setNewMovOpen] = useState(false);
+    const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+    
+    const [movData, setMovData] = useState({ 
+        id: null,
+        title: '', 
+        description: '', 
+        type: 'Documento', 
+        date: new Date().toISOString().split('T')[0],
+        hearingType: 'Una', 
+        modality: 'Presencial', 
+        link: '',
+        time: '10:00',
+        deadlineGoal: ''
+    });
+
+    const startEditing = (mov) => {
+        setMovData({
+            ...mov,
+            hearingType: mov.hearingType || 'Una',
+            modality: mov.modality || 'Presencial',
+            link: mov.link || '',
+            time: mov.time || '10:00',
+            deadlineGoal: ''
+        });
+        setNewMovOpen(true);
+    };
+
+    const submitMovement = (e) => {
+      e.preventDefault();
+      let finalTitle = movData.title;
+      let finalDesc = movData.description;
+
+      if (movData.type === 'Prazo' && movData.deadlineGoal) {
+          finalTitle = `Prazo: ${movData.deadlineGoal}`;
+      }
+      if (movData.type === 'Audiência') {
+          finalTitle = `Audiência ${movData.hearingType} (${movData.modality})`;
+      }
+
+      handleAddMovement(process.id, {
+          ...movData,
+          title: finalTitle,
+          description: finalDesc
+      });
+      setNewMovOpen(false);
+      setMovData({ id: null, title: '', description: '', type: 'Documento', date: new Date().toISOString().split('T')[0], hearingType: 'Una', modality: 'Presencial', link: '', time: '10:00', deadlineGoal: '' });
+    };
+
+    return (
+      <div className="animate-in slide-in-from-bottom-8 duration-500 max-w-4xl mx-auto pb-20">
+        <div className="flex items-center justify-between mb-6 no-print">
+          <button onClick={() => setActiveView('dashboard')} className="flex items-center text-slate-500 hover:text-indigo-600 gap-1">
+            <ArrowLeft size={18} /> Voltar ao Dashboard
+          </button>
+        </div>
+
+        <div id="printable-report" className="hidden print:block font-serif text-black p-8">
+            <div className="text-center border-b-2 border-black pb-4 mb-6">
+                <h1 className="text-2xl font-bold uppercase">Relatório de Andamento Processual</h1>
+                <p className="text-sm mt-1">JMD Consultoria Jurídica</p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+                <div>
+                    <p><strong>Cliente:</strong> {process.client}</p>
+                    <p><strong>Processo:</strong> {process.cnj}</p>
+                </div>
+                <div className="text-right">
+                    <p><strong>Tribunal:</strong> {process.trt} ({process.uf})</p>
+                    <p><strong>Status:</strong> {process.status}</p>
+                </div>
+            </div>
+
+            <h3 className="text-lg font-bold border-b border-black mb-4 pb-1">Histórico de Movimentações</h3>
+            <div className="space-y-4">
+                {process.movements.filter(m => m.title !== 'Cadastro Inicial').map((m, idx) => (
+                    <div key={idx} className="mb-4 break-inside-avoid">
+                        <div className="flex justify-between font-bold text-sm">
+                            <span>{formatDate(m.date)} - {m.type.toUpperCase()}</span>
+                        </div>
+                        <p className="text-sm font-semibold">{m.title}</p>
+                        <p className="text-sm text-justify">{m.description}</p>
+                    </div>
+                ))}
+            </div>
+            
+            <div className="mt-12 text-center text-xs border-t pt-4">
+                <p>Documento gerado eletronicamente em {new Date().toLocaleDateString('pt-BR')}.</p>
+            </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden print:hidden">
+          <div className="bg-slate-50 border-b border-slate-200 p-8">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900">{process.client}</h1>
+                <p className="font-mono text-lg text-slate-600 mt-1">{process.cnj}</p>
+              </div>
+              <div className="text-right relative">
+                <button 
+                  onClick={() => setStatusMenuOpen(!statusMenuOpen)}
+                  className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold border cursor-pointer ${getStatusColor(process.status)}`}
+                >
+                  {process.status} <MoreHorizontal size={14} />
+                </button>
+
+                {statusMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-40 bg-white border rounded shadow-lg z-10">
+                        {['Ativo', 'Arquivado', 'Suspenso', 'Recurso', 'Execução'].map(s => (
+                            <button key={s} 
+                                onClick={() => { handleChangeStatus(process.id, s); setStatusMenuOpen(false); }}
+                                className="block w-full text-left px-4 py-2 text-sm hover:bg-slate-50 text-slate-700"
+                            >
+                                {s}
+                            </button>
+                        ))}
+                    </div>
+                )}
+                <p className="text-slate-500 mt-2 font-medium">{process.trt} - {process.uf}</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-2 mt-4 flex-wrap">
+              {process.tags.map(tag => <span key={tag} className="px-3 py-1 bg-slate-200 text-slate-700 rounded-full text-xs font-semibold">{tag}</span>)}
+            </div>
+          </div>
+
+          <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="md:col-span-2">
+              <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><FileText size={20} /> Histórico de Movimentações</h3>
+              
+              {!newMovOpen && (
+                <button onClick={() => { setMovData({ id: null, title: '', description: '', type: 'Documento', date: new Date().toISOString().split('T')[0], hearingType: 'Una', modality: 'Presencial', link: '', time: '10:00', deadlineGoal: '' }); setNewMovOpen(true); }} className="w-full mb-6 py-3 border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-indigo-500 hover:text-indigo-600 transition-all flex items-center justify-center gap-2 no-print">
+                  <PlusCircle size={18} /> Adicionar Nova Movimentação
+                </button>
+              )}
+
+              {newMovOpen && (
+                <form onSubmit={submitMovement} className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-6 animate-in fade-in zoom-in-95 no-print relative">
+                   <div className="flex justify-between items-center mb-3 border-b pb-2">
+                       <span className="font-bold text-slate-700">{movData.id ? 'Editar Movimentação' : 'Nova Movimentação'}</span>
+                       <button type="button" onClick={() => setNewMovOpen(false)}><X size={16} /></button>
+                   </div>
+                   
+                   <div className="grid grid-cols-2 gap-4 mb-3">
+                      <select className="p-2 border rounded" value={movData.type} onChange={e => setMovData({...movData, type: e.target.value})}>
+                        <option>Documento</option>
+                        <option>Audiência</option>
+                        <option>Prazo</option>
+                        <option>Sentença</option>
+                        <option>Admin</option>
+                      </select>
+                      <input type="date" required className="p-2 border rounded" value={movData.date} onChange={e => setMovData({...movData, date: e.target.value})} />
+                   </div>
+
+                   {movData.type === 'Audiência' && (
+                       <div className="bg-orange-50 p-3 rounded border border-orange-200 mb-3 space-y-3">
+                           <div className="grid grid-cols-2 gap-3">
+                               <div>
+                                   <label className="text-xs font-bold text-orange-800">Tipo</label>
+                                   <select className="w-full p-1 border rounded text-sm" value={movData.hearingType} onChange={e => setMovData({...movData, hearingType: e.target.value})}>
+                                       <option>Una</option>
+                                       <option>Inicial</option>
+                                       <option>Instrução</option>
+                                       <option>Julgamento</option>
+                                       <option>Conciliação</option>
+                                   </select>
+                               </div>
+                               <div>
+                                   <label className="text-xs font-bold text-orange-800">Hora</label>
+                                   <input type="time" className="w-full p-1 border rounded text-sm" value={movData.time} onChange={e => setMovData({...movData, time: e.target.value})} />
+                               </div>
+                           </div>
+                           <div>
+                               <label className="text-xs font-bold text-orange-800">Modalidade</label>
+                               <div className="flex gap-4 mt-1">
+                                   <label className="flex items-center gap-1 text-sm"><input type="radio" name="modality" value="Presencial" checked={movData.modality === 'Presencial'} onChange={() => setMovData({...movData, modality: 'Presencial'})} /> Presencial</label>
+                                   <label className="flex items-center gap-1 text-sm"><input type="radio" name="modality" value="Online" checked={movData.modality === 'Online'} onChange={() => setMovData({...movData, modality: 'Online'})} /> Online</label>
+                               </div>
+                           </div>
+                           {movData.modality === 'Online' && (
+                               <input type="text" placeholder="Cole o Link da audiência aqui..." className="w-full p-2 border rounded text-sm" value={movData.link} onChange={e => setMovData({...movData, link: e.target.value})} />
+                           )}
+                       </div>
+                   )}
+
+                   {movData.type === 'Prazo' && (
+                       <div className="bg-red-50 p-3 rounded border border-red-200 mb-3">
+                           <label className="text-xs font-bold text-red-800">Manifestação sobre o que?</label>
+                           <input type="text" placeholder="Ex: Réplica, Cálculos, Laudo Pericial..." className="w-full p-2 border rounded mt-1" 
+                               value={movData.deadlineGoal} onChange={e => setMovData({...movData, deadlineGoal: e.target.value})} />
+                       </div>
+                   )}
+
+                   {movData.type !== 'Audiência' && movData.type !== 'Prazo' && (
+                        <input type="text" placeholder="Título (ex: Despacho do Juiz)" className="w-full p-2 border rounded mb-3" value={movData.title} onChange={e => setMovData({...movData, title: e.target.value})} />
+                   )}
+                   
+                   <div className="relative">
+                        <textarea 
+                            placeholder="Descrição adicional..." 
+                            rows="3" 
+                            className="w-full p-2 border rounded mb-3" 
+                            value={movData.description} 
+                            onChange={e => setMovData({...movData, description: e.target.value})} 
+                        />
+                   </div>
+                   
+                   <div className="flex justify-end gap-2">
+                     <button type="button" onClick={() => setNewMovOpen(false)} className="text-slate-500 text-sm hover:underline">Cancelar</button>
+                     <button type="submit" className="bg-indigo-600 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700 flex items-center gap-2">
+                        <Save size={14} /> Salvar
+                     </button>
+                   </div>
+                </form>
+              )}
+
+              <ProcessTimeline 
+                 movements={process.movements} 
+                 onEdit={startEditing} 
+                 onDelete={(movId) => handleDeleteMovement(process.id, movId)}
+              />
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-slate-50 p-5 rounded-xl border border-slate-100 no-print">
+                <h4 className="font-bold text-slate-700 mb-3">Ações Rápidas</h4>
+                <div className="space-y-2">
+                  <button onClick={printReport} className="w-full text-left p-3 bg-white border hover:bg-indigo-50 hover:text-indigo-700 rounded transition-colors text-sm text-slate-600 flex items-center gap-2 font-medium">
+                    <Printer size={16} /> Gerar Relatório PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const InternalCalendarView = () => {
+      const events = safeProcesses.flatMap(p => {
+          return (p.movements || [])
+            .filter(m => m.type === 'Audiência' || m.type === 'Prazo')
+            .map(m => ({
+                id: p.id + m.date,
+                date: m.date,
+                time: m.time || '00:00',
+                type: m.type,
+                title: m.title,
+                client: p.client,
+                processId: p.id
+            }));
+      }).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      return (
+        <div className="animate-in fade-in max-w-4xl mx-auto">
+            <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                <CalendarIcon className="text-indigo-600" /> Agenda Interna do Escritório
+            </h2>
+
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-4 bg-slate-50 border-b border-slate-200 font-medium text-slate-500 flex justify-between">
+                    <span>Próximos Compromissos</span>
+                    <span>{events.length} eventos encontrados</span>
+                </div>
+                <div className="divide-y divide-slate-100">
+                    {events.length === 0 ? (
+                        <div className="p-8 text-center text-slate-400">Nenhum evento agendado.</div>
+                    ) : (
+                        events.map((evt, idx) => (
+                            <div key={idx} onClick={() => handleProcessClick(evt.processId)} className="p-4 hover:bg-slate-50 cursor-pointer flex items-center gap-4 group transition-colors">
+                                <div className="text-center min-w-[60px]">
+                                    <span className="block text-xs font-bold text-slate-400 uppercase">{new Date(evt.date).toLocaleDateString('pt-BR', { weekday: 'short' })}</span>
+                                    <span className="block text-xl font-bold text-slate-800">{new Date(evt.date).getDate()}</span>
+                                    <span className="block text-xs text-slate-500">{new Date(evt.date).toLocaleDateString('pt-BR', { month: 'short' })}</span>
+                                </div>
+                                <div className={`w-1 h-12 rounded-full ${evt.type === 'Audiência' ? 'bg-orange-400' : 'bg-red-400'}`}></div>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className={`text-xs px-2 py-0.5 rounded font-bold uppercase ${
+                                            evt.type === 'Audiência' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'
+                                        }`}>
+                                            {evt.type}
+                                        </span>
+                                        {evt.type === 'Audiência' && <span className="text-xs text-slate-500 flex items-center gap-1"><Clock size={12} /> {evt.time}</span>}
+                                    </div>
+                                    <h4 className="font-bold text-slate-800 group-hover:text-indigo-600">{evt.title}</h4>
+                                    <p className="text-sm text-slate-500">{evt.client}</p>
+                                </div>
+                                <ChevronRight className="text-slate-300 group-hover:text-indigo-600" size={20} />
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+        </div>
+      );
+  };
 
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans">
@@ -665,7 +1103,6 @@ function App() {
           {activeView === 'dashboard' && <DashboardView />}
           {activeView === 'list' && <ListView />}
           
-          {/* USANDO O COMPONENTE SIMPLIFICADO AQUI */}
           {activeView === 'form' && <FormView onSave={handleSaveProcess} onCancel={() => setActiveView('dashboard')} />}
           
           {activeView === 'detail' && <ProcessDetailView />}
