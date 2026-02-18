@@ -26,19 +26,20 @@ import {
   Trash2,
   Save,
   CalendarDays,
+  HardDrive,
   Wifi,
   WifiOff
 } from 'lucide-react';
 
 /**
  * JMD PROCESSOS TRABALHISTAS
- * Versão 4.5 (Crash Protection Fix & CSS Enabled)
+ * Versão 4.8 (Production Final)
  */
 
 // --- DADOS DE CONFIGURAÇÃO (TRTs) ---
 const TRT_REGIONS = [
-  { region: '15ª Região', trt: 'TRT-15', states: ['SP'], name: 'SP - Interior' },
-  { region: '2ª Região', trt: 'TRT-2', states: ['SP'], name: 'SP - Capital/Litoral' },
+  { region: '15ª Região', trt: 'TRT-15', states: ['SP'], name: 'SP - Interior (Campinas/Região)' },
+  { region: '2ª Região', trt: 'TRT-2', states: ['SP'], name: 'SP - Capital/Grande SP/Baixada' },
   { region: '1ª Região', trt: 'TRT-1', states: ['RJ'], name: 'Rio de Janeiro' },
   { region: '3ª Região', trt: 'TRT-3', states: ['MG'], name: 'Minas Gerais' },
   { region: '4ª Região', trt: 'TRT-4', states: ['RS'], name: 'Rio Grande do Sul' },
@@ -86,6 +87,7 @@ const maskCNJ = (value) => {
   if (!value) return '';
   let v = value.replace(/\D/g, '').slice(0, 20);
   
+  // NNNNNNN-DD.AAAA.J.TR.OOOO
   if (v.length > 16) {
     return v.replace(/^(\d{7})(\d{2})(\d{4})(\d{1})(\d{2})(\d+)/, '$1-$2.$3.$4.$5.$6');
   } else if (v.length > 14) {
@@ -168,6 +170,7 @@ const LoginView = ({ onLogin }) => {
           <h1 className="text-2xl font-bold text-slate-800">JMD Processos</h1>
           <p className="text-slate-500">Acesso Restrito</p>
         </div>
+        
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Usuário</label>
@@ -364,6 +367,7 @@ const AdvancedCalculatorView = () => {
 };
 
 const FormView = ({ onSave, onCancel }) => {
+    // PRE-SELEÇÃO TRT-15 (Interior)
     const [formData, setFormData] = useState({
       client: '',
       uf: 'SP',
@@ -429,7 +433,7 @@ const FormView = ({ onSave, onCancel }) => {
               <select className="w-full p-3 border border-slate-300 rounded-lg bg-white"
                 value={formData.trt} onChange={e => setFormData({...formData, trt: e.target.value})}>
                 {currentTrts.map(t => (
-                    <option key={t.trt} value={t.trt}>{t.trt} - {t.name}</option>
+                    <option key={t.trt} value={t.trt}>{t.name}</option>
                 ))}
               </select>
             </div>
@@ -618,44 +622,46 @@ function App() {
         }
       `}</style>
 
-      <aside className="w-20 lg:w-64 bg-slate-900 text-white flex flex-col fixed h-full z-10 transition-all sidebar">
-        <div className="p-6 flex items-center gap-3 border-b border-slate-800">
-          <span className="font-bold text-lg tracking-tight hidden lg:block text-center w-full">JMD Processos</span>
-        </div>
+      <ErrorBoundary>
+        <aside className="w-20 lg:w-64 bg-slate-900 text-white flex flex-col fixed h-full z-10 transition-all sidebar">
+          <div className="p-6 flex items-center gap-3 border-b border-slate-800">
+            <span className="font-bold text-lg tracking-tight hidden lg:block text-center w-full">JMD Processos</span>
+          </div>
 
-        <nav className="flex-1 py-6 space-y-2 px-3">
-          <button onClick={() => setActiveView('dashboard')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'dashboard' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-            <LayoutDashboard size={20} /> <span className="hidden lg:block">Visão Geral</span>
-          </button>
-          <button onClick={() => setActiveView('list')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-            <Search size={20} /> <span className="hidden lg:block">Processos</span>
-          </button>
-          <button onClick={() => setActiveView('calendar')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'calendar' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-            <CalendarIcon size={20} /> <span className="hidden lg:block">Agenda Interna</span>
-          </button>
-          <button onClick={() => setActiveView('calculator')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'calculator' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-            <Calculator size={20} /> <span className="hidden lg:block">Calculadora</span>
-          </button>
-        </nav>
+          <nav className="flex-1 py-6 space-y-2 px-3">
+            <button onClick={() => setActiveView('dashboard')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'dashboard' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+              <LayoutDashboard size={20} /> <span className="hidden lg:block">Visão Geral</span>
+            </button>
+            <button onClick={() => setActiveView('list')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+              <Search size={20} /> <span className="hidden lg:block">Processos</span>
+            </button>
+            <button onClick={() => setActiveView('calendar')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'calendar' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+              <CalendarIcon size={20} /> <span className="hidden lg:block">Agenda Interna</span>
+            </button>
+            <button onClick={() => setActiveView('calculator')} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeView === 'calculator' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+              <Calculator size={20} /> <span className="hidden lg:block">Calculadora</span>
+            </button>
+          </nav>
 
-        <div className="p-4 border-t border-slate-800">
-          <button onClick={() => setActiveView('form')} className="w-full flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white py-3 rounded-lg shadow-lg">
-            <PlusCircle size={20} /> <span className="hidden lg:block font-bold">Novo Processo</span>
-          </button>
-        </div>
-      </aside>
+          <div className="p-4 border-t border-slate-800">
+            <button onClick={() => setActiveView('form')} className="w-full flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white py-3 rounded-lg shadow-lg">
+              <PlusCircle size={20} /> <span className="hidden lg:block font-bold">Novo Processo</span>
+            </button>
+          </div>
+        </aside>
 
-      <main className="flex-1 ml-20 lg:ml-64 p-4 lg:p-8 overflow-y-auto h-full">
-        {activeView === 'dashboard' && <DashboardView />}
-        {activeView === 'list' && <ListView />}
-        
-        {/* USANDO O COMPONENTE SIMPLIFICADO AQUI */}
-        {activeView === 'form' && <FormView onSave={handleSaveProcess} onCancel={() => setActiveView('dashboard')} />}
-        
-        {activeView === 'detail' && <ProcessDetailView />}
-        {activeView === 'calendar' && <InternalCalendarView />}
-        {activeView === 'calculator' && <AdvancedCalculatorView />}
-      </main>
+        <main className="flex-1 ml-20 lg:ml-64 p-4 lg:p-8 overflow-y-auto h-full">
+          {activeView === 'dashboard' && <DashboardView />}
+          {activeView === 'list' && <ListView />}
+          
+          {/* USANDO O COMPONENTE SIMPLIFICADO AQUI */}
+          {activeView === 'form' && <FormView onSave={handleSaveProcess} onCancel={() => setActiveView('dashboard')} />}
+          
+          {activeView === 'detail' && <ProcessDetailView />}
+          {activeView === 'calendar' && <InternalCalendarView />}
+          {activeView === 'calculator' && <AdvancedCalculatorView />}
+        </main>
+      </ErrorBoundary>
     </div>
   );
 }
