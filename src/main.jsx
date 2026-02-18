@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 
-// ⚠️ IMPORTANTE: Mantenha esta linha descomentada no GitHub para o CSS funcionar!
-import './index.css'; 
+// ⚠️ IMPORTANTE: No seu GitHub, REMOVA AS BARRAS (//) abaixo para o estilo funcionar!
+// import './index.css'; 
 
 import { 
   LayoutDashboard, 
@@ -35,7 +35,7 @@ import {
 
 /**
  * JMD PROCESSOS TRABALHISTAS
- * Sistema de Gestão Jurídica Inteligente - Versão 3.8 (Form Fix)
+ * Versão 3.9 (Fix Form & CSS Import)
  */
 
 // --- DADOS DE CONFIGURAÇÃO (TRTs) ---
@@ -210,9 +210,6 @@ const LoginView = ({ onLogin }) => {
   );
 };
 
-// ... BrazilMap, ProcessTimeline, AdvancedCalculatorView, etc. (Mantidos iguais, omitidos para brevidade mas devem estar no arquivo final) ...
-// Para garantir que nada falte, vou reincluir tudo abaixo de forma compacta:
-
 const BrazilMap = ({ processes = [], onStateClick }) => {
   const [hoveredState, setHoveredState] = useState(null);
   const stats = useMemo(() => {
@@ -238,7 +235,6 @@ const BrazilMap = ({ processes = [], onStateClick }) => {
     return '#1e40af';
   };
 
-  // Mapa simplificado (apenas lógica, o SVG completo é grande)
   const states = [
     { id: 'RR', name: 'Roraima', x: 100, y: 30, r: 15 },
     { id: 'AP', name: 'Amapá', x: 180, y: 40, r: 12 },
@@ -370,7 +366,7 @@ const AdvancedCalculatorView = () => {
     );
 };
 
-// --- FORM VIEW CORRIGIDO (Onde estava o problema) ---
+// --- FORM VIEW CORRIGIDO ---
 const FormView = ({ onSave, onCancel }) => {
     // Inicializa TRT com base no estado inicial SP (TRT-2)
     const [formData, setFormData] = useState({
@@ -380,9 +376,6 @@ const FormView = ({ onSave, onCancel }) => {
       cnj: '',
       tags: ''
     });
-
-    // Filtra TRTs baseado no estado selecionado
-    const availableTRTs = TRT_REGIONS.filter(region => region.states.includes(formData.uf));
 
     const handleSubmit = (e) => {
       e.preventDefault();
@@ -402,6 +395,18 @@ const FormView = ({ onSave, onCancel }) => {
       onSave(newProc);
     };
 
+    const handleStateChange = (e) => {
+        const newUf = e.target.value;
+        const validTrts = TRT_REGIONS.filter(r => r.states.includes(newUf));
+        setFormData(prev => ({
+            ...prev,
+            uf: newUf,
+            trt: validTrts.length > 0 ? validTrts[0].trt : ''
+        }));
+    };
+
+    const currentTrts = TRT_REGIONS.filter(region => region.states.includes(formData.uf));
+
     return (
       <div className="max-w-2xl mx-auto">
         <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
@@ -420,16 +425,7 @@ const FormView = ({ onSave, onCancel }) => {
               <label className="block text-sm font-medium text-slate-700 mb-1">Estado (UF)</label>
               <select className="w-full p-3 border border-slate-300 rounded-lg bg-white"
                 value={formData.uf} 
-                onChange={e => {
-                    const newUf = e.target.value;
-                    const validTrts = TRT_REGIONS.filter(r => r.states.includes(newUf));
-                    // Atualiza TRT automaticamente se mudar o estado
-                    setFormData({
-                        ...formData, 
-                        uf: newUf,
-                        trt: validTrts.length > 0 ? validTrts[0].trt : ''
-                    });
-                }}>
+                onChange={handleStateChange}>
                 {UF_LIST.map(uf => <option key={uf} value={uf}>{uf}</option>)}
               </select>
             </div>
@@ -437,7 +433,7 @@ const FormView = ({ onSave, onCancel }) => {
               <label className="block text-sm font-medium text-slate-700 mb-1">Tribunal/Jurisdição</label>
               <select className="w-full p-3 border border-slate-300 rounded-lg bg-white"
                 value={formData.trt} onChange={e => setFormData({...formData, trt: e.target.value})}>
-                {availableTRTs.map(t => (
+                {currentTrts.map(t => (
                     <option key={t.trt} value={t.trt}>{t.trt} - {t.name}</option>
                 ))}
               </select>
