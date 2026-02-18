@@ -6,7 +6,6 @@ body {
   background-color: #f8fafc;
 }
 
-/* Scrollbar personalizada */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -21,25 +20,15 @@ body {
   background: #94a3b8;
 }
 
-/* Animações Simples */
 @layer utilities {
   .animate-in {
     animation: fadeIn 0.5s ease-out;
-  }
-  
-  .slide-in-from-bottom-4 {
-    animation: slideUp 0.5s ease-out;
   }
 }
 
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
-}
-
-@keyframes slideUp {
-  from { transform: translateY(1rem); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
 }
 
 @media print {
