@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
-import './index.css'; 
+
+// O import abaixo foi comentado para garantir o funcionamento no ambiente de visualização.
+// No seu ambiente local/servidor, certifique-se de que o arquivo index.css existe.
+// import './index.css'; 
 
 import { 
   LayoutDashboard, 
@@ -175,7 +178,6 @@ const LoginView = ({ onLogin }) => {
 };
 
 const BrazilMap = ({ processes = [], onStateClick }) => {
-  const [hoveredState, setHoveredState] = useState(null);
   const stats = useMemo(() => {
     const data = {};
     if (!Array.isArray(processes)) return data; 
@@ -200,7 +202,7 @@ const BrazilMap = ({ processes = [], onStateClick }) => {
     <div className="relative w-full h-96 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center overflow-hidden">
       <svg viewBox="0 0 320 400" className="w-full h-full max-w-lg drop-shadow-lg">
         {states.map((s) => (
-          <g key={s.id} onClick={() => onStateClick(s.id)} onMouseEnter={() => setHoveredState(s)} onMouseLeave={() => setHoveredState(null)} className="cursor-pointer transition-all duration-300 hover:opacity-80">
+          <g key={s.id} onClick={() => onStateClick(s.id)} className="cursor-pointer transition-all duration-300 hover:opacity-80">
             <circle cx={s.x} cy={s.y} r={s.r} fill={getStateColor(s.id)} stroke="white" strokeWidth="2" />
             <text x={s.x} y={s.y} dy=".3em" textAnchor="middle" fill="white" fontSize="9" fontWeight="bold" pointerEvents="none">{s.id}</text>
           </g>
@@ -235,6 +237,137 @@ const ProcessTimeline = ({ movements, onEdit, onDelete }) => {
       ))}
     </div>
   );
+};
+
+const DashboardView = ({ processes, onStateClick, handleProcessClick }) => {
+    const active = processes.filter(p => p.status === 'Ativo').length;
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white p-5 rounded-xl shadow-sm border flex justify-between items-center">
+            <div><p className="text-slate-500 text-xs">Total Processos</p><h3 className="text-xl font-bold">{processes.length}</h3></div>
+            <div className="p-3 bg-indigo-100 text-indigo-600 rounded-lg"><FileText size={20} /></div>
+          </div>
+          <div className="bg-white p-5 rounded-xl shadow-sm border flex justify-between items-center">
+            <div><p className="text-slate-500 text-xs">Ativos</p><h3 className="text-xl font-bold">{active}</h3></div>
+            <div className="p-3 bg-blue-100 text-blue-600 rounded-lg"><Briefcase size={20} /></div>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-xl border">
+          <h3 className="font-bold text-sm mb-4">Mapa de Atuação</h3>
+          <BrazilMap processes={processes} onStateClick={onStateClick} />
+        </div>
+      </div>
+    );
+};
+
+const ListView = ({ processes, filterState, setFilterState, searchTerm, setSearchTerm, handleProcessClick }) => {
+    let list = filterState ? processes.filter(p => p.uf === filterState) : processes;
+    if (searchTerm) list = list.filter(p => p.client.toLowerCase().includes(searchTerm.toLowerCase()) || p.cnj.includes(searchTerm));
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-bold">Processos {filterState ? `(${filterState})` : ''}</h2>
+          <div className="relative w-64 flex gap-2">
+            {filterState && <button onClick={() => setFilterState(null)} className="text-xs text-indigo-600 underline">Limpar</button>}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
+              <input type="text" placeholder="Filtrar..." className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border overflow-hidden">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold">
+              <tr><th className="p-4">Cliente</th><th className="p-4">Tribunal</th><th className="p-4">Status</th><th className="p-4"></th></tr>
+            </thead>
+            <tbody className="divide-y">
+              {list.map(p => (
+                <tr key={p.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => handleProcessClick(p.id)}>
+                  <td className="p-4"><div className="font-semibold">{p.client}</div><div className="text-xs text-slate-400 font-mono">{p.cnj}</div></td>
+                  <td className="p-4">{p.trt}</td>
+                  <td className="p-4"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${getStatusColor(p.status)}`}>{p.status}</span></td>
+                  <td className="p-4 text-right text-slate-300"><ChevronRight size={16} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {list.length === 0 && <div className="p-10 text-center text-slate-400">Nenhum processo encontrado.</div>}
+        </div>
+      </div>
+    );
+};
+
+const FormView = ({ onSave, onCancel }) => {
+    const [f, setF] = useState({ client: '', uf: 'SP', trt: 'TRT-15', cnj: '', tags: '' });
+    return (
+      <div className="max-w-xl mx-auto">
+        <h2 className="text-xl font-bold mb-6">Novo Cadastro</h2>
+        <form onSubmit={e => { e.preventDefault(); onSave({ ...f, id: Date.now().toString(), status: 'Ativo', movements: [{id:'i', title:'Cadastro', date:new Date().toISOString(), type:'Admin'}] }); }} className="bg-white p-6 rounded-xl border space-y-4">
+          <div><label className="text-xs font-bold text-slate-500">Cliente</label><input required className="w-full p-2 border rounded" value={f.client} onChange={e => setF({...f, client: e.target.value})} /></div>
+          <div className="grid grid-cols-2 gap-4">
+            <div><label className="text-xs font-bold text-slate-500">UF</label><select className="w-full p-2 border rounded" value={f.uf} onChange={e => setF({...f, uf: e.target.value})}>{UF_LIST.map(u => <option key={u}>{u}</option>)}</select></div>
+            <div><label className="text-xs font-bold text-slate-500">Tribunal</label><select className="w-full p-2 border rounded" value={f.trt} onChange={e => setF({...f, trt: e.target.value})}>{TRT_REGIONS.filter(r => r.states.includes(f.uf)).map(r => <option key={r.trt} value={r.trt}>{r.name}</option>)}</select></div>
+          </div>
+          <div><label className="text-xs font-bold text-slate-500">CNJ (20 dígitos)</label><input required placeholder="0010495-16.2023.5.15.0112" className="w-full p-2 border rounded font-mono" value={f.cnj} onChange={e => setF({...f, cnj: maskCNJ(e.target.value)})} /></div>
+          <div className="flex gap-2 pt-4"><button type="button" onClick={onCancel} className="flex-1 p-2 bg-slate-100 rounded text-sm font-bold">Cancelar</button><button type="submit" className="flex-1 p-2 bg-indigo-600 text-white rounded text-sm font-bold">Salvar Processo</button></div>
+        </form>
+      </div>
+    );
+};
+
+const ProcessDetailView = ({ process, onBack, onUpdate }) => {
+    if (!process) return null;
+    return (
+      <div className="max-w-3xl mx-auto space-y-6">
+        <button onClick={onBack} className="text-slate-400 flex items-center gap-1 text-sm hover:text-indigo-600"><ArrowLeft size={16} /> Voltar para a lista</button>
+        <div className="bg-white rounded-xl border p-8 shadow-sm">
+            <div className="flex justify-between items-start">
+                <div><h1 className="text-2xl font-bold text-slate-900">{process.client}</h1><p className="font-mono text-slate-500 mt-1">{process.cnj}</p></div>
+                <div className="text-right"><span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(process.status)}`}>{process.status}</span><p className="text-xs text-slate-400 mt-2">{process.trt}</p></div>
+            </div>
+            <div className="mt-10 border-t pt-8">
+                <h3 className="font-bold text-sm text-slate-800 mb-6 flex items-center gap-2"><Clock size={18} /> Histórico de Movimentações</h3>
+                <ProcessTimeline movements={process.movements} onEdit={()=>{}} onDelete={()=>{}} />
+            </div>
+        </div>
+      </div>
+    );
+};
+
+const AdvancedCalculatorView = () => {
+    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+    const [days, setDays] = useState(15);
+    const [resultDate, setResultDate] = useState(null);
+
+    const calculate = () => {
+        let current = new Date(startDate);
+        current.setDate(current.getDate() + 1);
+        let added = 0;
+        while (added < days) {
+            const isWeekend = current.getDay() === 0 || current.getDay() === 6;
+            if (!isWeekend) added++;
+            if (added < days) current.setDate(current.getDate() + 1);
+        }
+        setResultDate(current);
+    };
+
+    return (
+        <div className="max-w-xl mx-auto bg-white p-8 rounded-xl border shadow-sm">
+            <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-800"><Calculator className="text-indigo-600" /> Calculadora de Prazos (Dias Úteis)</h2>
+            <div className="space-y-4">
+                <div><label className="text-xs font-bold text-slate-500">Data de Publicação</label><input type="date" className="w-full p-2 border rounded" value={startDate} onChange={e => setStartDate(e.target.value)} /></div>
+                <div><label className="text-xs font-bold text-slate-500">Prazo (em dias)</label><input type="number" className="w-full p-2 border rounded" value={days} onChange={e => setDays(parseInt(e.target.value))} /></div>
+                <button onClick={calculate} className="w-full py-3 bg-indigo-600 text-white rounded-lg font-bold shadow-md hover:bg-indigo-700 transition-colors">Calcular Prazo Fatal</button>
+                {resultDate && (
+                    <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg text-center">
+                        <span className="text-xs font-bold text-green-700 uppercase">Prazo Final</span>
+                        <div className="text-2xl font-bold text-green-800">{formatDate(resultDate.toISOString().split('T')[0])}</div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 };
 
 function App() {
@@ -276,121 +409,28 @@ function App() {
     setActiveView('dashboard');
   };
 
-  const handleUpdateProcess = async (procId, updates) => {
-    try {
-      await fetch(`/api/processes/${procId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) });
-      fetchProcesses();
-    } catch (e) {
-      setProcesses(processes.map(p => p.id === procId ? { ...p, ...updates } : p));
-    }
-  };
-
-  const DashboardView = () => {
-    const active = processes.filter(p => p.status === 'Ativo').length;
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white p-5 rounded-xl shadow-sm border flex justify-between items-center">
-            <div><p className="text-slate-500 text-xs">Total Processos</p><h3 className="text-xl font-bold">{processes.length}</h3></div>
-            <div className="p-3 bg-indigo-100 text-indigo-600 rounded-lg"><FileText size={20} /></div>
-          </div>
-          <div className="bg-white p-5 rounded-xl shadow-sm border flex justify-between items-center">
-            <div><p className="text-slate-500 text-xs">Ativos</p><h3 className="text-xl font-bold">{active}</h3></div>
-            <div className="p-3 bg-blue-100 text-blue-600 rounded-lg"><Briefcase size={20} /></div>
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-xl border"><h3 className="font-bold text-sm mb-4">Mapa de Atuação</h3><BrazilMap processes={processes} onStateClick={(uf) => { setFilterState(uf); setActiveView('list'); }} /></div>
-      </div>
-    );
-  };
-
-  const ListView = () => {
-    let list = filterState ? processes.filter(p => p.uf === filterState) : processes;
-    if (searchTerm) list = list.filter(p => p.client.toLowerCase().includes(searchTerm.toLowerCase()) || p.cnj.includes(searchTerm));
-    return (
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-bold">Processos</h2>
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
-            <input type="text" placeholder="Filtrar..." className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border overflow-hidden">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold">
-              <tr><th className="p-4">Cliente</th><th className="p-4">Tribunal</th><th className="p-4">Status</th><th className="p-4"></th></tr>
-            </thead>
-            <tbody className="divide-y">
-              {list.map(p => (
-                <tr key={p.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => { setSelectedProcessId(p.id); setActiveView('detail'); }}>
-                  <td className="p-4"><div className="font-semibold">{p.client}</div><div className="text-xs text-slate-400 font-mono">{p.cnj}</div></td>
-                  <td className="p-4">{p.trt}</td>
-                  <td className="p-4"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${getStatusColor(p.status)}`}>{p.status}</span></td>
-                  <td className="p-4 text-right text-slate-300"><ChevronRight size={16} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  };
-
-  const FormView = () => {
-    const [f, setF] = useState({ client: '', uf: 'SP', trt: 'TRT-15', cnj: '', tags: '' });
-    return (
-      <div className="max-w-xl mx-auto">
-        <h2 className="text-xl font-bold mb-6">Novo Cadastro</h2>
-        <form onSubmit={e => { e.preventDefault(); handleSaveProcess({ ...f, id: Date.now().toString(), status: 'Ativo', movements: [{id:'i', title:'Cadastro', date:new Date().toISOString(), type:'Admin'}] }); }} className="bg-white p-6 rounded-xl border space-y-4">
-          <input required placeholder="Cliente" className="w-full p-2 border rounded" value={f.client} onChange={e => setF({...f, client: e.target.value})} />
-          <div className="grid grid-cols-2 gap-4">
-            <select className="p-2 border rounded" value={f.uf} onChange={e => setF({...f, uf: e.target.value})}>{UF_LIST.map(u => <option key={u}>{u}</option>)}</select>
-            <select className="p-2 border rounded" value={f.trt} onChange={e => setF({...f, trt: e.target.value})}>{TRT_REGIONS.filter(r => r.states.includes(f.uf)).map(r => <option key={r.trt} value={r.trt}>{r.name}</option>)}</select>
-          </div>
-          <input required placeholder="CNJ" className="w-full p-2 border rounded font-mono" value={f.cnj} onChange={e => setF({...f, cnj: maskCNJ(e.target.value)})} />
-          <div className="flex gap-2"><button type="button" onClick={() => setActiveView('dashboard')} className="flex-1 p-2 bg-slate-100 rounded">Cancelar</button><button type="submit" className="flex-1 p-2 bg-indigo-600 text-white rounded">Salvar</button></div>
-        </form>
-      </div>
-    );
-  };
-
-  const ProcessDetailView = () => {
-    const p = processes.find(x => x.id === selectedProcessId);
-    if (!p) return null;
-    return (
-      <div className="max-w-3xl mx-auto space-y-6">
-        <button onClick={() => setActiveView('dashboard')} className="text-slate-400 flex items-center gap-1 text-sm"><ArrowLeft size={16} /> Voltar</button>
-        <div className="bg-white rounded-xl border p-6">
-            <div className="flex justify-between items-start">
-                <div><h1 className="text-2xl font-bold">{p.client}</h1><p className="font-mono text-slate-500">{p.cnj}</p></div>
-                <div className="text-right"><span className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(p.status)}`}>{p.status}</span><p className="text-xs text-slate-400 mt-1">{p.trt}</p></div>
-            </div>
-            <div className="mt-8 border-t pt-6"><h3 className="font-bold text-sm mb-4">Movimentações</h3><ProcessTimeline movements={p.movements} onEdit={()=>{}} onDelete={()=>{}} /></div>
-        </div>
-      </div>
-    );
+  const handleProcessClick = (id) => {
+      setSelectedProcessId(id);
+      setActiveView('detail');
   };
 
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans">
       <aside className="w-64 bg-slate-900 text-white flex flex-col fixed h-full transition-all">
-        <div className="p-6 border-b border-slate-800 text-center font-bold text-lg">JMD Processos</div>
-        <nav className="flex-1 py-4 px-3 space-y-1">
-          <button onClick={() => setActiveView('dashboard')} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm ${activeView === 'dashboard' ? 'bg-indigo-600' : 'hover:bg-slate-800'}`}><LayoutDashboard size={18} /> Visão Geral</button>
-          <button onClick={() => setActiveView('list')} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm ${activeView === 'list' ? 'bg-indigo-600' : 'hover:bg-slate-800'}`}><Search size={18} /> Processos</button>
-          <button onClick={() => setActiveView('calendar')} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm ${activeView === 'calendar' ? 'bg-indigo-600' : 'hover:bg-slate-800'}`}><CalendarIcon size={18} /> Agenda</button>
-          <button onClick={() => setActiveView('calculator')} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm ${activeView === 'calculator' ? 'bg-indigo-600' : 'hover:bg-slate-800'}`}><Calculator size={18} /> Calculadora</button>
+        <div className="p-8 border-b border-slate-800 text-center font-bold text-xl tracking-tight">JMD Processos</div>
+        <nav className="flex-1 py-6 px-4 space-y-1">
+          <button onClick={() => setActiveView('dashboard')} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm font-medium transition-colors ${activeView === 'dashboard' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard size={18} /> Visão Geral</button>
+          <button onClick={() => setActiveView('list')} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm font-medium transition-colors ${activeView === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Search size={18} /> Processos</button>
+          <button onClick={() => setActiveView('calculator')} className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm font-medium transition-colors ${activeView === 'calculator' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Calculator size={18} /> Calculadora</button>
         </nav>
-        <div className="p-4 border-t border-slate-800"><button onClick={() => setActiveView('form')} className="w-full bg-indigo-600 p-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2"><PlusCircle size={18} /> Novo Processo</button></div>
+        <div className="p-6 border-t border-slate-800"><button onClick={() => setActiveView('form')} className="w-full bg-indigo-600 hover:bg-indigo-700 p-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-900/20"><PlusCircle size={18} /> Novo Processo</button></div>
       </aside>
-      <main className="flex-1 ml-64 p-8 overflow-y-auto">
+      <main className="flex-1 ml-64 p-10 overflow-y-auto">
         <ErrorBoundary>
-            {activeView === 'dashboard' && <DashboardView />}
-            {activeView === 'list' && <ListView />}
-            {activeView === 'form' && <FormView />}
-            {activeView === 'detail' && <ProcessDetailView />}
-            {activeView === 'calendar' && <div className="text-center py-20 text-slate-400">Calendário indisponível nesta versão.</div>}
+            {activeView === 'dashboard' && <DashboardView processes={processes} onStateClick={(uf) => { setFilterState(uf); setActiveView('list'); }} />}
+            {activeView === 'list' && <ListView processes={processes} filterState={filterState} setFilterState={setFilterState} searchTerm={searchTerm} setSearchTerm={setSearchTerm} handleProcessClick={handleProcessClick} />}
+            {activeView === 'form' && <FormView onSave={handleSaveProcess} onCancel={() => setActiveView('dashboard')} />}
+            {activeView === 'detail' && <ProcessDetailView process={processes.find(x => x.id === selectedProcessId)} onBack={() => setActiveView('list')} />}
             {activeView === 'calculator' && <AdvancedCalculatorView />}
         </ErrorBoundary>
       </main>
