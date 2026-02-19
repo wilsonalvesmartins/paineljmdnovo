@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
-import './index.css'; 
+// import './index.css'; // Removido para evitar erro de build
 
 import { 
   LayoutDashboard, 
@@ -28,7 +28,9 @@ import {
   CalendarDays,
   HardDrive,
   Wifi,
-  WifiOff
+  WifiOff,
+  Link as LinkIcon,
+  AlertCircle
 } from 'lucide-react';
 
 const TRT_REGIONS = [
@@ -78,33 +80,15 @@ const formatDate = (dateString) => {
 
 const maskCNJ = (value) => {
   if (!value) return '';
-  
-  // Remove tudo que não é dígito
   let v = value.replace(/\D/g, '');
-  
-  // Limita ao tamanho máximo do CNJ (20 dígitos)
   if (v.length > 20) v = v.substring(0, 20);
-
-  // Aplica a máscara do CNJ: NNNNNNN-DD.AAAA.J.TR.OOOO
-  // Exemplo: 0000000-00.0000.5.15.0000
-  
-  // 1. 7 dígitos + resto -> NNNNNNN-resto
   v = v.replace(/^(\d{7})(\d)/, '$1-$2');
-  
-  // 2. hifen + 2 dígitos + resto -> NNNNNNN-DD.resto
   v = v.replace(/-(\d{2})(\d)/, '-$1.$2');
-  
-  // 3. ponto + 4 dígitos + resto -> NNNNNNN-DD.AAAA.resto
   v = v.replace(/\.(\d{4})(\d)/, '.$1.$2');
-  
-  // 4. ponto + 1 dígito + resto -> NNNNNNN-DD.AAAA.J.resto
   v = v.replace(/\.(\d{1})(\d)/, '.$1.$2');
-  
-  // 5. ponto + 2 dígitos + resto -> NNNNNNN-DD.AAAA.J.TR.resto
   if (v.length > 16) { 
       v = v.replace(/(\.\d{1}\.\d{2})(\d)/, '$1.$2');
   }
-  
   return v;
 };
 
@@ -220,23 +204,29 @@ const LoginView = ({ onLogin }) => {
 
 const BrazilMap = ({ processes = [], onStateClick }) => {
   const [hoveredState, setHoveredState] = useState(null);
+  
   const stats = useMemo(() => {
     const data = {};
     if (!Array.isArray(processes)) return data; 
     processes.forEach(p => {
-      if (!data[p.uf]) data[p.uf] = { total: 0, trt2: 0, trt15: 0, active: 0 };
-      data[p.uf].total++;
-      if (p.status === 'Ativo') data[p.uf].active++;
+      let key = p.uf;
+      
+      // Lógica Especial para SP (Separar TRT2 e TRT15)
       if (p.uf === 'SP') {
-        if (p.trt === 'TRT-2') data[p.uf].trt2++;
-        if (p.trt === 'TRT-15') data[p.uf].trt15++;
+          if (p.trt === 'TRT-2') key = 'SP-2';
+          else if (p.trt === 'TRT-15') key = 'SP-15';
+          else key = 'SP'; // Fallback
       }
+
+      if (!data[key]) data[key] = { total: 0, active: 0 };
+      data[key].total++;
+      if (p.status === 'Ativo') data[key].active++;
     });
     return data;
   }, [processes]);
 
-  const getStateColor = (uf) => {
-    const count = stats[uf]?.total || 0;
+  const getStateColor = (id) => {
+    const count = stats[id]?.total || 0;
     if (count === 0) return '#e5e7eb';
     if (count < 2) return '#93c5fd';
     if (count < 5) return '#3b82f6';
@@ -267,7 +257,10 @@ const BrazilMap = ({ processes = [], onStateClick }) => {
     { id: 'MG', name: 'Minas Gerais', x: 220, y: 230, r: 22 },
     { id: 'ES', name: 'Espírito Santo', x: 255, y: 235, r: 10 },
     { id: 'RJ', name: 'Rio de Janeiro', x: 240, y: 265, r: 10 },
-    { id: 'SP', name: 'São Paulo', x: 190, y: 280, r: 20 },
+    // SP Dividido
+    { id: 'SP-2', name: 'SP (TRT-2 Capital)', x: 200, y: 285, r: 12 }, 
+    { id: 'SP-15', name: 'SP (TRT-15 Interior)', x: 180, y: 275, r: 12 }, 
+    
     { id: 'PR', name: 'Paraná', x: 170, y: 310, r: 15 },
     { id: 'SC', name: 'Santa Catarina', x: 180, y: 335, r: 12 },
     { id: 'RS', name: 'Rio G. Sul', x: 160, y: 365, r: 18 },
@@ -279,7 +272,9 @@ const BrazilMap = ({ processes = [], onStateClick }) => {
         {states.map((state) => (
           <g key={state.id} onClick={() => onStateClick(state.id)} onMouseEnter={() => setHoveredState(state)} onMouseLeave={() => setHoveredState(null)} className="cursor-pointer transition-all duration-300 hover:opacity-80">
             <circle cx={state.x} cy={state.y} r={state.r} fill={getStateColor(state.id)} stroke="white" strokeWidth="2" />
-            <text x={state.x} y={state.y} dy=".3em" textAnchor="middle" fill="white" fontSize="9" fontWeight="bold" pointerEvents="none">{state.id}</text>
+            <text x={state.x} y={state.y} dy=".3em" textAnchor="middle" fill="white" fontSize="9" fontWeight="bold" pointerEvents="none">
+              {state.id === 'SP-2' ? 'SP-2' : state.id === 'SP-15' ? 'SP-15' : state.id}
+            </text>
           </g>
         ))}
       </svg>
@@ -504,11 +499,9 @@ function App() {
     }
   };
 
-  // EFEITO MODIFICADO: Removemos o setInterval para evitar o refresh automático
   useEffect(() => {
     if (isAuthenticated) {
         fetchProcesses();
-        // O intervalo foi removido conforme solicitado
     }
   }, [isAuthenticated]);
 
@@ -522,8 +515,8 @@ function App() {
     return <LoginView onLogin={() => setIsAuthenticated(true)} />;
   }
 
-  const handleStateClick = (uf) => {
-    setFilterState(uf);
+  const handleStateClick = (ufId) => {
+    setFilterState(ufId);
     setActiveView('list');
   };
 
@@ -547,6 +540,36 @@ function App() {
       localStorage.setItem('jmd_processes_backup', JSON.stringify(updated));
     }
     setActiveView('dashboard');
+  };
+
+  const handleUpdateProcess = async (updatedProcess) => {
+      try {
+        await fetch(`/api/processes/${updatedProcess.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedProcess)
+        });
+        fetchProcesses();
+      } catch (e) {
+          const updated = processes.map(p => p.id === updatedProcess.id ? updatedProcess : p);
+          setProcesses(updated);
+          localStorage.setItem('jmd_processes_backup', JSON.stringify(updated));
+      }
+      setActiveView('detail'); // Refresca a vista
+  };
+
+  const handleDeleteProcess = async (id) => {
+      if(!window.confirm("Tem certeza que deseja EXCLUIR este processo? Esta ação não pode ser desfeita.")) return;
+      
+      try {
+        await fetch(`/api/processes/${id}`, { method: 'DELETE' });
+        fetchProcesses();
+      } catch (e) {
+          const updated = processes.filter(p => p.id !== id);
+          setProcesses(updated);
+          localStorage.setItem('jmd_processes_backup', JSON.stringify(updated));
+      }
+      setActiveView('dashboard');
   };
 
   const handleAddMovement = async (procId, movement) => {
@@ -627,22 +650,54 @@ function App() {
     const today = new Date();
     
     const upcomingHearings = safeProcesses.reduce((acc, p) => {
-        if (p.nextHearing) {
-            const hDate = new Date(p.nextHearing);
-            if (hDate >= today && hDate <= nextWeek) return acc + 1;
-        }
-        return acc;
+        const hasHearing = (p.movements || []).some(m => {
+            if (m.type === 'Audiência') {
+                const mDate = new Date(m.date);
+                return mDate >= today && mDate <= nextWeek;
+            }
+            return false;
+        });
+        return hasHearing ? acc + 1 : acc;
     }, 0);
+
+    const upcomingDeadlines = safeProcesses.reduce((acc, p) => {
+        const hasDeadline = (p.movements || []).some(m => {
+            if (m.type === 'Prazo') {
+                const mDate = new Date(m.date);
+                return mDate >= today && mDate <= nextWeek;
+            }
+            return false;
+        });
+        return hasDeadline ? acc + 1 : acc;
+    }, 0);
+
+    // Próximos 6 eventos (Prazos ou Audiências)
+    const nextEvents = safeProcesses.flatMap(p => {
+        return (p.movements || [])
+          .filter(m => (m.type === 'Audiência' || m.type === 'Prazo') && new Date(m.date) >= today)
+          .map(m => ({
+              ...m,
+              client: p.client,
+              processId: p.id
+          }));
+    }).sort((a, b) => new Date(a.date) - new Date(b.date)).slice(0, 6);
 
     return (
       <div className="space-y-6 animate-in fade-in duration-500">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
             <div>
               <p className="text-slate-500 text-sm font-medium">Audiências (7 dias)</p>
               <h3 className="text-2xl font-bold text-slate-800">{upcomingHearings}</h3>
             </div>
             <div className="p-3 bg-orange-100 text-orange-600 rounded-lg"><Gavel size={24} /></div>
+          </div>
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+            <div>
+              <p className="text-slate-500 text-sm font-medium">Prazos (7 dias)</p>
+              <h3 className="text-2xl font-bold text-slate-800">{upcomingDeadlines}</h3>
+            </div>
+            <div className="p-3 bg-red-100 text-red-600 rounded-lg"><AlertCircle size={24} /></div>
           </div>
           <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
             <div>
@@ -667,23 +722,19 @@ function App() {
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 overflow-y-auto max-h-[460px]">
-            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Clock size={18} /> Radar de Atividade</h3>
+            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Clock size={18} /> Radar de Atividade (Próximos)</h3>
             <div className="space-y-4">
-              {safeProcesses
-                .filter(p => p.movements && p.movements.length > 0)
-                .sort((a, b) => new Date(b.movements[0].date) - new Date(a.movements[0].date))
-                .slice(0, 5)
-                .map(p => (
-                  <div key={p.id} onClick={() => handleProcessClick(p.id)} className="cursor-pointer group hover:bg-slate-50 p-2 rounded transition-colors">
+              {nextEvents.map((evt, i) => (
+                  <div key={i} onClick={() => handleProcessClick(evt.processId)} className="cursor-pointer group hover:bg-slate-50 p-2 rounded transition-colors border-b last:border-0 border-slate-50">
                     <div className="flex justify-between items-start mb-1">
-                      <span className="text-xs font-mono text-slate-400">{p.trt}</span>
-                      <span className="text-xs text-slate-400">{formatDate(p.movements[0].date)}</span>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded ${evt.type === 'Audiência' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}`}>{evt.type}</span>
+                      <span className="text-xs font-mono text-slate-500">{formatDate(evt.date)}</span>
                     </div>
-                    <p className="font-medium text-sm text-slate-800 group-hover:text-indigo-600 truncate">{p.client}</p>
-                    <p className="text-xs text-slate-500 truncate">{p.movements[0].title}</p>
+                    <p className="font-medium text-sm text-slate-800 group-hover:text-indigo-600 truncate mt-1">{evt.client}</p>
+                    <p className="text-xs text-slate-500 truncate">{evt.title}</p>
                   </div>
               ))}
-              {safeProcesses.length === 0 && <p className="text-center text-slate-400 text-sm py-4">Nenhum processo encontrado.</p>}
+              {nextEvents.length === 0 && <p className="text-center text-slate-400 text-sm py-4">Nenhum evento próximo.</p>}
             </div>
           </div>
         </div>
@@ -692,7 +743,18 @@ function App() {
   };
 
   const ListView = () => {
-    let list = filterState ? safeProcesses.filter(p => p.uf === filterState) : safeProcesses;
+    let list = safeProcesses;
+    
+    // Filtragem Avançada pelo ID do Estado
+    if (filterState) {
+        if (filterState === 'SP-2') {
+             list = list.filter(p => p.uf === 'SP' && p.trt === 'TRT-2');
+        } else if (filterState === 'SP-15') {
+             list = list.filter(p => p.uf === 'SP' && p.trt === 'TRT-15');
+        } else {
+             list = list.filter(p => p.uf === filterState);
+        }
+    }
 
     if (searchTerm) {
         list = list.filter(p => 
@@ -710,7 +772,7 @@ function App() {
               <ArrowLeft size={20} />
             </button>
             <h2 className="text-2xl font-bold text-slate-800">
-              {filterState ? `Processos em ${filterState}` : 'Todos os Processos'}
+              {filterState ? `Processos em ${filterState === 'SP-2' ? 'SP (Capital)' : filterState === 'SP-15' ? 'SP (Interior)' : filterState}` : 'Todos os Processos'}
             </h2>
             <span className="bg-slate-200 text-slate-700 px-3 py-1 rounded-full text-sm font-bold">{list.length}</span>
           </div>
@@ -779,7 +841,12 @@ function App() {
 
     const [newMovOpen, setNewMovOpen] = useState(false);
     const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
     
+    // Estado do form de edição do PROCESSO
+    const [editProcData, setEditProcData] = useState({});
+
+    // Estado do form de MOVIMENTAÇÃO
     const [movData, setMovData] = useState({ 
         id: null,
         title: '', 
@@ -793,7 +860,24 @@ function App() {
         deadlineGoal: ''
     });
 
-    const startEditing = (mov) => {
+    const startEditingProcess = () => {
+        setEditProcData({ ...process, tags: process.tags.join(', ') });
+        setIsEditing(true);
+    };
+
+    const saveProcessEdit = (e) => {
+        e.preventDefault();
+        const updated = {
+            ...editProcData,
+            tags: typeof editProcData.tags === 'string' 
+                  ? editProcData.tags.split(',').map(t => t.trim()).filter(Boolean)
+                  : editProcData.tags
+        };
+        handleUpdateProcess(updated);
+        setIsEditing(false);
+    };
+
+    const startEditingMovement = (mov) => {
         setMovData({
             ...mov,
             hearingType: mov.hearingType || 'Una',
@@ -826,6 +910,16 @@ function App() {
       setMovData({ id: null, title: '', description: '', type: 'Documento', date: new Date().toISOString().split('T')[0], hearingType: 'Una', modality: 'Presencial', link: '', time: '10:00', deadlineGoal: '' });
     };
 
+    const handleUfChangeInEdit = (e) => {
+        const newUf = e.target.value;
+        const validTrts = TRT_REGIONS.filter(r => r.states.includes(newUf));
+        setEditProcData(prev => ({
+            ...prev,
+            uf: newUf,
+            trt: validTrts.length > 0 ? validTrts[0].trt : ''
+        }));
+    };
+
     return (
       <div className="animate-in slide-in-from-bottom-8 duration-500 max-w-4xl mx-auto pb-20">
         <div className="flex items-center justify-between mb-6 no-print">
@@ -833,6 +927,49 @@ function App() {
             <ArrowLeft size={18} /> Voltar ao Dashboard
           </button>
         </div>
+
+        {/* Modal/Form de Edição do Processo */}
+        {isEditing && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg">
+                    <h3 className="text-xl font-bold mb-4">Editar Dados do Processo</h3>
+                    <form onSubmit={saveProcessEdit} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Cliente</label>
+                            <input className="w-full p-2 border rounded" value={editProcData.client} onChange={e => setEditProcData({...editProcData, client: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">CNJ</label>
+                            <input className="w-full p-2 border rounded" value={editProcData.cnj} onChange={e => setEditProcData({...editProcData, cnj: maskCNJ(e.target.value)})} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                             <div>
+                                <label className="block text-sm font-medium mb-1">Estado</label>
+                                <select className="w-full p-2 border rounded" value={editProcData.uf} onChange={handleUfChangeInEdit}>
+                                    {UF_LIST.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                                </select>
+                             </div>
+                             <div>
+                                <label className="block text-sm font-medium mb-1">Tribunal</label>
+                                <select className="w-full p-2 border rounded" value={editProcData.trt} onChange={e => setEditProcData({...editProcData, trt: e.target.value})}>
+                                    {TRT_REGIONS.filter(r => r.states.includes(editProcData.uf)).map(t => (
+                                        <option key={t.trt} value={t.trt}>{t.trt}</option>
+                                    ))}
+                                </select>
+                             </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Tags (separar por vírgula)</label>
+                            <input className="w-full p-2 border rounded" value={editProcData.tags} onChange={e => setEditProcData({...editProcData, tags: e.target.value})} />
+                        </div>
+                        <div className="flex justify-end gap-2 mt-4">
+                            <button type="button" onClick={() => setIsEditing(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancelar</button>
+                            <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Salvar Alterações</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
 
         <div id="printable-report" className="hidden print:block font-serif text-black p-8">
             <div className="text-center border-b-2 border-black pb-4 mb-6">
@@ -876,7 +1013,12 @@ function App() {
                 <h1 className="text-3xl font-bold text-slate-900">{process.client}</h1>
                 <p className="font-mono text-lg text-slate-600 mt-1">{process.cnj}</p>
               </div>
-              <div className="text-right relative">
+              <div className="text-right relative flex flex-col items-end gap-2">
+                 <div className="flex items-center gap-2">
+                    <button onClick={startEditingProcess} className="p-2 text-slate-400 hover:text-indigo-600 bg-white border rounded hover:shadow-sm" title="Editar Processo"><Edit2 size={16} /></button>
+                    <button onClick={() => handleDeleteProcess(process.id)} className="p-2 text-slate-400 hover:text-red-600 bg-white border rounded hover:shadow-sm" title="Excluir Processo"><Trash2 size={16} /></button>
+                 </div>
+                
                 <button 
                   onClick={() => setStatusMenuOpen(!statusMenuOpen)}
                   className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold border cursor-pointer ${getStatusColor(process.status)}`}
@@ -885,7 +1027,7 @@ function App() {
                 </button>
 
                 {statusMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-40 bg-white border rounded shadow-lg z-10">
+                    <div className="absolute right-0 mt-8 w-40 bg-white border rounded shadow-lg z-10">
                         {['Ativo', 'Arquivado', 'Suspenso', 'Recurso', 'Execução'].map(s => (
                             <button key={s} 
                                 onClick={() => { handleChangeStatus(process.id, s); setStatusMenuOpen(false); }}
@@ -896,7 +1038,7 @@ function App() {
                         ))}
                     </div>
                 )}
-                <p className="text-slate-500 mt-2 font-medium">{process.trt} - {process.uf}</p>
+                <p className="text-slate-500 font-medium">{process.trt} - {process.uf}</p>
               </div>
             </div>
             
@@ -997,7 +1139,7 @@ function App() {
 
               <ProcessTimeline 
                  movements={process.movements} 
-                 onEdit={startEditing} 
+                 onEdit={startEditingMovement} 
                  onDelete={(movId) => handleDeleteMovement(process.id, movId)}
               />
             </div>
@@ -1029,7 +1171,9 @@ function App() {
                 type: m.type,
                 title: m.title,
                 client: p.client,
-                processId: p.id
+                processId: p.id,
+                link: m.link,
+                modality: m.modality
             }));
       }).sort((a, b) => new Date(a.date) - new Date(b.date));
 
@@ -1049,14 +1193,14 @@ function App() {
                         <div className="p-8 text-center text-slate-400">Nenhum evento agendado.</div>
                     ) : (
                         events.map((evt, idx) => (
-                            <div key={idx} onClick={() => handleProcessClick(evt.processId)} className="p-4 hover:bg-slate-50 cursor-pointer flex items-center gap-4 group transition-colors">
-                                <div className="text-center min-w-[60px]">
+                            <div key={idx} className="p-4 hover:bg-slate-50 flex items-center gap-4 group transition-colors">
+                                <div className="text-center min-w-[60px] cursor-pointer" onClick={() => handleProcessClick(evt.processId)}>
                                     <span className="block text-xs font-bold text-slate-400 uppercase">{new Date(evt.date).toLocaleDateString('pt-BR', { weekday: 'short' })}</span>
                                     <span className="block text-xl font-bold text-slate-800">{new Date(evt.date).getDate()}</span>
                                     <span className="block text-xs text-slate-500">{new Date(evt.date).toLocaleDateString('pt-BR', { month: 'short' })}</span>
                                 </div>
                                 <div className={`w-1 h-12 rounded-full ${evt.type === 'Audiência' ? 'bg-orange-400' : 'bg-red-400'}`}></div>
-                                <div className="flex-1">
+                                <div className="flex-1 cursor-pointer" onClick={() => handleProcessClick(evt.processId)}>
                                     <div className="flex items-center gap-2 mb-1">
                                         <span className={`text-xs px-2 py-0.5 rounded font-bold uppercase ${
                                             evt.type === 'Audiência' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'
@@ -1068,7 +1212,14 @@ function App() {
                                     <h4 className="font-bold text-slate-800 group-hover:text-indigo-600">{evt.title}</h4>
                                     <p className="text-sm text-slate-500">{evt.client}</p>
                                 </div>
-                                <ChevronRight className="text-slate-300 group-hover:text-indigo-600" size={20} />
+                                {evt.type === 'Audiência' && evt.modality === 'Online' && evt.link && (
+                                    <a href={evt.link} target="_blank" rel="noopener noreferrer" className="px-3 py-1 bg-indigo-50 text-indigo-600 text-xs font-bold rounded flex items-center gap-1 hover:bg-indigo-100 border border-indigo-200">
+                                        <LinkIcon size={12} /> Link da Sala
+                                    </a>
+                                )}
+                                <div onClick={() => handleProcessClick(evt.processId)} className="cursor-pointer">
+                                     <ChevronRight className="text-slate-300 group-hover:text-indigo-600" size={20} />
+                                </div>
                             </div>
                         ))
                     )}
@@ -1081,6 +1232,13 @@ function App() {
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans">
       <style>{`
+        /* Estilos Globais e Animações */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-in { animation: fadeIn 0.3s ease-out; }
+        
+        /* Estilos de Impressão */
         @media print {
           .no-print { display: none !important; }
           .print:hidden { display: none !important; }
