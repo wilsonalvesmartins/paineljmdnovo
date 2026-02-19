@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
+
+// ⚠️ IMPORTANTE: No seu GitHub, REMOVA AS BARRAS (//) DA LINHA ABAIXO:
+// import './index.css'; 
+
 import { 
   LayoutDashboard, 
   PlusCircle, 
@@ -22,15 +26,19 @@ import {
   Video,
   Edit2,
   Trash2,
-  Save
+  Save,
+  CalendarDays,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 
 /**
  * JMD PROCESSOS TRABALHISTAS
- * Versão 6.0 (Estável - Sem dependências externas de CSS)
+ * Versão 6.2 (Preview Fix & Styles Injection)
  */
 
-// --- ESTILOS INJETADOS (Para garantir que não fique branco) ---
+// --- ESTILOS INJETADOS (Para garantir funcionamento visual no Preview) ---
+// Este componente garante que o visual funcione mesmo se o index.css falhar
 const GlobalStyles = () => (
   <style>{`
     @import url('https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css');
@@ -107,6 +115,40 @@ const getStatusColor = (s) => {
 
 // --- COMPONENTES AUXILIARES ---
 
+// Error Boundary para capturar erros de renderização
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("Erro capturado:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center h-screen bg-slate-50 flex-col gap-4 p-8 text-center">
+          <AlertTriangle size={48} className="text-red-500" />
+          <h2 className="text-2xl font-bold text-slate-800">Ocorreu um erro inesperado</h2>
+          <p className="text-slate-600 bg-slate-100 p-4 rounded font-mono text-sm max-w-lg overflow-auto">
+            {this.state.error?.toString()}
+          </p>
+          <button 
+            onClick={() => { localStorage.clear(); window.location.reload(); }}
+            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          >
+            Limpar Cache e Recarregar
+          </button>
+        </div>
+      );
+    }
+    return this.props.children; 
+  }
+}
+
 const LoginView = ({ onLogin }) => {
   const [u, setU] = useState('');
   const [p, setP] = useState('');
@@ -132,7 +174,6 @@ const LoginView = ({ onLogin }) => {
 };
 
 const BrazilMap = ({ processes = [], onStateClick }) => {
-  // Mapa SVG simplificado (apenas círculos representando estados para evitar código gigante)
   const states = [
     {id:'SP', x:220, y:280}, {id:'RJ', x:260, y:270}, {id:'MG', x:240, y:240},
     {id:'RS', x:180, y:360}, {id:'PR', x:190, y:320}, {id:'SC', x:200, y:340},
@@ -141,7 +182,9 @@ const BrazilMap = ({ processes = [], onStateClick }) => {
   ];
   const stats = useMemo(() => {
     const d = {};
-    processes.forEach(p => { if(!d[p.uf]) d[p.uf]=0; d[p.uf]++; });
+    if (Array.isArray(processes)) {
+      processes.forEach(p => { if(!d[p.uf]) d[p.uf]=0; d[p.uf]++; });
+    }
     return d;
   }, [processes]);
 
@@ -160,27 +203,31 @@ const BrazilMap = ({ processes = [], onStateClick }) => {
   );
 };
 
-const Timeline = ({ movements, onDelete }) => (
-  <div className="space-y-6 ml-2">
-    {movements.filter(m => m.title !== 'Cadastro Inicial').map((m, i) => (
-      <div key={m.id || i} className="relative pl-6 border-l-2 border-slate-300 pb-4">
-        <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-indigo-600 border-2 border-white"></div>
-        <div className="flex justify-between">
-            <div>
-                <span className="text-xs font-bold text-indigo-600 uppercase">{m.type}</span>
-                <h4 className="font-bold text-slate-800">{m.title}</h4>
-                <p className="text-sm text-slate-600">{m.description}</p>
-            </div>
-            <div className="text-right">
-                <span className="text-xs text-slate-400 block">{formatDate(m.date)}</span>
-                <button onClick={() => onDelete(m.id)} className="text-red-400 hover:text-red-600 mt-1"><Trash2 size={14}/></button>
-            </div>
+const ProcessTimeline = ({ movements = [], onDelete }) => {
+  // Garante que movements seja sempre um array
+  const safeMovements = Array.isArray(movements) ? movements : [];
+  return (
+    <div className="space-y-6 ml-2">
+      {safeMovements.filter(m => m.title !== 'Cadastro Inicial').map((m, i) => (
+        <div key={m.id || i} className="relative pl-6 border-l-2 border-slate-300 pb-4">
+          <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-indigo-600 border-2 border-white"></div>
+          <div className="flex justify-between">
+              <div>
+                  <span className="text-xs font-bold text-indigo-600 uppercase">{m.type}</span>
+                  <h4 className="font-bold text-slate-800">{m.title}</h4>
+                  <p className="text-sm text-slate-600">{m.description}</p>
+              </div>
+              <div className="text-right">
+                  <span className="text-xs text-slate-400 block">{formatDate(m.date)}</span>
+                  <button onClick={() => onDelete(m.id)} className="text-red-400 hover:text-red-600 mt-1"><Trash2 size={14}/></button>
+              </div>
+          </div>
         </div>
-      </div>
-    ))}
-    {movements.length <= 1 && <p className="text-center text-slate-400 text-sm">Nenhuma movimentação extra.</p>}
-  </div>
-);
+      ))}
+      {safeMovements.length <= 1 && <p className="text-center text-slate-400 text-sm">Nenhuma movimentação extra.</p>}
+    </div>
+  );
+};
 
 // --- VIEWS ---
 
@@ -257,7 +304,7 @@ const FormView = ({ onSave, onCancel }) => {
                     }}>{UF_LIST.map(u=><option key={u}>{u}</option>)}</select></div>
                     <div><label className="text-xs font-bold text-slate-500 block mb-1">TRIBUNAL</label><input className="w-full border p-2 rounded bg-slate-100" readOnly value={f.trt} /></div>
                 </div>
-                <div><label className="text-xs font-bold text-slate-500 block mb-1">CNJ (20 Dígitos)</label><input required placeholder="0000000-00.0000.0.00.0000" className="w-full border p-2 rounded font-mono" value={f.cnj} onChange={e=>setF({...f, cnj: maskCNJ(e.target.value)})} /></div>
+                <div><label className="text-xs font-bold text-slate-500 block mb-1">CNJ (20 Dígitos)</label><input required placeholder="0010495-16.2023.5.15.0112" className="w-full border p-2 rounded font-mono" value={f.cnj} onChange={e=>setF({...f, cnj: maskCNJ(e.target.value)})} /></div>
                 <div className="flex gap-2 pt-4">
                     <button type="button" onClick={onCancel} className="flex-1 border p-2 rounded hover:bg-slate-50">Cancelar</button>
                     <button className="flex-1 bg-indigo-600 text-white p-2 rounded hover:bg-indigo-700">Salvar</button>
@@ -275,14 +322,14 @@ const DetailView = ({ process, onBack, onUpdate }) => {
 
     const handleAdd = (e) => {
         e.preventDefault();
-        const updated = { ...process, movements: [{...m, id: Date.now().toString()}, ...process.movements] };
+        const updated = { ...process, movements: [{...m, id: Date.now().toString()}, ...(process.movements || [])] };
         onUpdate(updated);
         setAdd(false);
         setM({ title: '', type: 'Documento', description: '', date: new Date().toISOString().split('T')[0] });
     };
 
     const handleDel = (id) => {
-        const updated = { ...process, movements: process.movements.filter(x => x.id !== id) };
+        const updated = { ...process, movements: (process.movements || []).filter(x => x.id !== id) };
         onUpdate(updated);
     };
 
@@ -315,19 +362,18 @@ const DetailView = ({ process, onBack, onUpdate }) => {
                             <button className="w-full bg-indigo-600 text-white p-1 rounded text-xs font-bold">Adicionar</button>
                         </form>
                     )}
-                    <Timeline movements={process.movements} onDelete={handleDel} />
+                    <ProcessTimeline movements={process.movements} onDelete={handleDel} />
                 </div>
             </div>
             
             <div id="printable-report" className="hidden">
-                 {/* Conteúdo oculto para impressão limpa */}
                  <div className="p-10 font-serif">
                      <h1 className="text-2xl text-center mb-10 border-b pb-4">Relatório Processual - JMD</h1>
                      <h2 className="text-xl font-bold">{process.client}</h2>
                      <p>{process.cnj}</p>
                      <hr className="my-4"/>
-                     {process.movements.map(m => (
-                         <div key={m.id} className="mb-4">
+                     {(process.movements || []).map(m => (
+                         <div key={m.id || Math.random()} className="mb-4">
                              <p className="font-bold">{formatDate(m.date)} - {m.title}</p>
                              <p>{m.description}</p>
                          </div>
@@ -367,7 +413,7 @@ const CalculatorView = () => {
 };
 
 const CalendarView = ({ processes, onClick }) => {
-    const events = processes.flatMap(p => p.movements.filter(m => m.type === 'Audiência' || m.type === 'Prazo').map(m => ({ ...m, pid: p.id, client: p.client }))).sort((a,b) => new Date(a.date) - new Date(b.date));
+    const events = processes.flatMap(p => (p.movements || []).filter(m => m.type === 'Audiência' || m.type === 'Prazo').map(m => ({ ...m, pid: p.id, client: p.client }))).sort((a,b) => new Date(a.date) - new Date(b.date));
     return (
         <div className="max-w-4xl mx-auto animate-in bg-white rounded-xl border shadow-sm overflow-hidden">
             <div className="p-4 border-b bg-slate-50 font-bold text-slate-700 flex items-center gap-2"><CalendarIcon size={18}/> Agenda de Compromissos</div>
@@ -452,13 +498,20 @@ export default function App() {
       <main className="flex-1 ml-64 p-8 overflow-y-auto min-h-screen">
          <ErrorBoundary>
             {view === 'dashboard' && <DashboardView processes={procs} onStateClick={(u)=>{setUf(u); setView('list')}} />}
-            {view === 'list' && <ListView processes={procs} filterState={uf} setFilterState={setUf} onProcessClick={(id)=>{setSelId(id); setView('detail')}} />}
+            {view === 'list' && <ListView processes={procs} filter={uf} setFilter={setUf} setView={setView} setSelId={setSelId} />}
             {view === 'form' && <FormView onSave={save} onCancel={()=>setView('dashboard')} />}
             {view === 'detail' && <DetailView process={procs.find(p=>p.id===selId)} onBack={()=>setView('list')} onUpdate={update} onAddMovement={()=>{}} onDeleteMovement={()=>{}} />}
             {view === 'calendar' && <CalendarView processes={procs} onClick={(id)=>{setSelId(id); setView('detail')}} />}
-            {view === 'calculator' && <AdvancedCalculatorView />}
+            {view === 'calculator' && <CalculatorView />}
          </ErrorBoundary>
       </main>
     </div>
   );
+}
+
+// Injeção de estilo e renderização final
+const rootElement = document.getElementById('root');
+if (rootElement) {
+  const root = ReactDOM.createRoot(rootElement);
+  root.render(<App />);
 }
