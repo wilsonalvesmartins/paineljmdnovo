@@ -101,19 +101,7 @@ const maskCNJ = (value) => {
   v = v.replace(/\.(\d{1})(\d)/, '.$1.$2');
   
   // 5. ponto + 2 dígitos + resto -> NNNNNNN-DD.AAAA.J.TR.resto
-  // (Nota: o regex anterior já cobre o ponto inicial, então pegamos a sequência exata)
-  // Para evitar conflito, aplicamos na parte final se houver caracteres suficientes
-  
-  // Uma abordagem mais segura sequencial para o final:
   if (v.length > 16) { 
-      // Se já passou do J (1 digito), o próximo ponto é do TR
-      // A regex acima (passo 4) coloca um ponto depois do J. 
-      // Agora precisamos de um ponto depois do TR (2 digitos).
-      // A string está assim: ...AAAA.J.TR...
-      // O replace anterior transformou ...AAAA.JTR... em ...AAAA.J.TR...
-      // Agora queremos transformar ...AAAA.J.TR... em ...AAAA.J.TR.OOOO
-      
-      // Vamos usar uma regex que pega o padrão específico do final para inserir o último ponto
       v = v.replace(/(\.\d{1}\.\d{2})(\d)/, '$1.$2');
   }
   
@@ -516,11 +504,11 @@ function App() {
     }
   };
 
+  // EFEITO MODIFICADO: Removemos o setInterval para evitar o refresh automático
   useEffect(() => {
     if (isAuthenticated) {
         fetchProcesses();
-        const interval = setInterval(fetchProcesses, 5000); 
-        return () => clearInterval(interval);
+        // O intervalo foi removido conforme solicitado
     }
   }, [isAuthenticated]);
 
