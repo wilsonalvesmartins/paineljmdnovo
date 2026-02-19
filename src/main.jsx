@@ -1,6 +1,50 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
-import './index.css'; 
+
+// Estilos injetados diretamente para evitar erro de arquivo não encontrado
+const GlobalStyles = () => (
+  <style>{`
+    @import url('https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css');
+    
+    body { 
+      background-color: #f8fafc; 
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    .animate-in {
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white; }
+      .sidebar { display: none; }
+      main { margin-left: 0 !important; padding: 0 !important; }
+      #printable-report { display: block !important; }
+    }
+  `}</style>
+);
 
 import { 
   LayoutDashboard, 
@@ -31,9 +75,16 @@ import {
   WifiOff
 } from 'lucide-react';
 
+/**
+ * JMD PROCESSOS TRABALHISTAS
+ * Versão 7.0 - Final Standalone (CSS Injetado)
+ */
+
+// --- DADOS DE CONFIGURAÇÃO (TRTs) ---
 const TRT_REGIONS = [
+  { region: '15ª Região', trt: 'TRT-15', states: ['SP'], name: 'SP - Interior (Campinas/Região)' },
+  { region: '2ª Região', trt: 'TRT-2', states: ['SP'], name: 'SP - Capital/Grande SP/Baixada' },
   { region: '1ª Região', trt: 'TRT-1', states: ['RJ'], name: 'Rio de Janeiro' },
-  { region: '2ª Região', trt: 'TRT-2', states: ['SP'], name: 'SP - Capital/Litoral' },
   { region: '3ª Região', trt: 'TRT-3', states: ['MG'], name: 'Minas Gerais' },
   { region: '4ª Região', trt: 'TRT-4', states: ['RS'], name: 'Rio Grande do Sul' },
   { region: '5ª Região', trt: 'TRT-5', states: ['BA'], name: 'Bahia' },
@@ -46,7 +97,6 @@ const TRT_REGIONS = [
   { region: '12ª Região', trt: 'TRT-12', states: ['SC'], name: 'Santa Catarina' },
   { region: '13ª Região', trt: 'TRT-13', states: ['PB'], name: 'Paraíba' },
   { region: '14ª Região', trt: 'TRT-14', states: ['RO', 'AC'], name: 'Rondônia e Acre' },
-  { region: '15ª Região', trt: 'TRT-15', states: ['SP'], name: 'SP - Interior' },
   { region: '16ª Região', trt: 'TRT-16', states: ['MA'], name: 'Maranhão' },
   { region: '17ª Região', trt: 'TRT-17', states: ['ES'], name: 'Espírito Santo' },
   { region: '18ª Região', trt: 'TRT-18', states: ['GO'], name: 'Goiás' },
@@ -63,6 +113,7 @@ const UF_LIST = [
   'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
 ];
 
+// --- UTILITÁRIOS ---
 const formatDate = (dateString) => {
   if (!dateString) return '-';
   try {
@@ -78,45 +129,19 @@ const formatDate = (dateString) => {
 
 const maskCNJ = (value) => {
   if (!value) return '';
+  let v = value.replace(/\D/g, '').slice(0, 20);
   
-  // Remove tudo que não é dígito
-  let v = value.replace(/\D/g, '');
-  
-  // Limita ao tamanho máximo do CNJ (20 dígitos)
-  if (v.length > 20) v = v.substring(0, 20);
-
-  // Aplica a máscara do CNJ: NNNNNNN-DD.AAAA.J.TR.OOOO
-  // Exemplo: 0000000-00.0000.5.15.0000
-  
-  // 1. 7 dígitos + resto -> NNNNNNN-resto
-  v = v.replace(/^(\d{7})(\d)/, '$1-$2');
-  
-  // 2. hifen + 2 dígitos + resto -> NNNNNNN-DD.resto
-  v = v.replace(/-(\d{2})(\d)/, '-$1.$2');
-  
-  // 3. ponto + 4 dígitos + resto -> NNNNNNN-DD.AAAA.resto
-  v = v.replace(/\.(\d{4})(\d)/, '.$1.$2');
-  
-  // 4. ponto + 1 dígito + resto -> NNNNNNN-DD.AAAA.J.resto
-  v = v.replace(/\.(\d{1})(\d)/, '.$1.$2');
-  
-  // 5. ponto + 2 dígitos + resto -> NNNNNNN-DD.AAAA.J.TR.resto
-  // (Nota: o regex anterior já cobre o ponto inicial, então pegamos a sequência exata)
-  // Para evitar conflito, aplicamos na parte final se houver caracteres suficientes
-  
-  // Uma abordagem mais segura sequencial para o final:
-  if (v.length > 16) { 
-      // Se já passou do J (1 digito), o próximo ponto é do TR
-      // A regex acima (passo 4) coloca um ponto depois do J. 
-      // Agora precisamos de um ponto depois do TR (2 digitos).
-      // A string está assim: ...AAAA.J.TR...
-      // O replace anterior transformou ...AAAA.JTR... em ...AAAA.J.TR...
-      // Agora queremos transformar ...AAAA.J.TR... em ...AAAA.J.TR.OOOO
-      
-      // Vamos usar uma regex que pega o padrão específico do final para inserir o último ponto
-      v = v.replace(/(\.\d{1}\.\d{2})(\d)/, '$1.$2');
+  if (v.length > 16) {
+    return v.replace(/^(\d{7})(\d{2})(\d{4})(\d{1})(\d{2})(\d+)/, '$1-$2.$3.$4.$5.$6');
+  } else if (v.length > 14) {
+    return v.replace(/^(\d{7})(\d{2})(\d{4})(\d{1})(\d+)/, '$1-$2.$3.$4.$5');
+  } else if (v.length > 13) {
+    return v.replace(/^(\d{7})(\d{2})(\d{4})(\d+)/, '$1-$2.$3.$4');
+  } else if (v.length > 9) {
+    return v.replace(/^(\d{7})(\d{2})(\d+)/, '$1-$2.$3');
+  } else if (v.length > 7) {
+    return v.replace(/^(\d{7})(\d+)/, '$1-$2');
   }
-  
   return v;
 };
 
@@ -131,6 +156,7 @@ const getStatusColor = (status) => {
   }
 };
 
+// --- ERROR BOUNDARY ---
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -145,10 +171,10 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex items-center justify-center h-screen bg-slate-50 flex-col gap-4 p-8 text-center">
+        <div className="flex items-center justify-center h-screen bg-slate-50 flex-col gap-4 p-8 text-center font-sans">
           <AlertTriangle size={48} className="text-red-500" />
           <h2 className="text-2xl font-bold text-slate-800">Ocorreu um erro inesperado</h2>
-          <p className="text-slate-600 bg-slate-100 p-4 rounded font-mono text-sm max-w-lg overflow-auto">
+          <p className="text-slate-600 bg-slate-100 p-4 rounded font-mono text-sm max-w-lg overflow-auto text-left">
             {this.state.error?.toString()}
           </p>
           <button 
@@ -163,6 +189,8 @@ class ErrorBoundary extends React.Component {
     return this.props.children; 
   }
 }
+
+// --- COMPONENTES ---
 
 const LoginView = ({ onLogin }) => {
   const [user, setUser] = useState('');
@@ -182,11 +210,8 @@ const LoginView = ({ onLogin }) => {
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-indigo-600 text-white rounded-xl mx-auto flex items-center justify-center mb-4">
-            <Lock size={32} />
-          </div>
           <h1 className="text-2xl font-bold text-slate-800">JMD Processos</h1>
-          <p className="text-slate-500">Acesso Restrito</p>
+          <p className="text-slate-500 text-sm">Acesso Restrito</p>
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -387,10 +412,11 @@ const AdvancedCalculatorView = () => {
 };
 
 const FormView = ({ onSave, onCancel }) => {
+    // PRE-SELEÇÃO TRT-15 (Interior)
     const [formData, setFormData] = useState({
       client: '',
       uf: 'SP',
-      trt: 'TRT-2',
+      trt: 'TRT-15',
       cnj: '',
       tags: ''
     });
@@ -452,7 +478,7 @@ const FormView = ({ onSave, onCancel }) => {
               <select className="w-full p-3 border border-slate-300 rounded-lg bg-white"
                 value={formData.trt} onChange={e => setFormData({...formData, trt: e.target.value})}>
                 {currentTrts.map(t => (
-                    <option key={t.trt} value={t.trt}>{t.trt} - {t.name}</option>
+                    <option key={t.trt} value={t.trt}>{t.name}</option>
                 ))}
               </select>
             </div>
@@ -461,7 +487,7 @@ const FormView = ({ onSave, onCancel }) => {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Número do Processo (CNJ)</label>
             <input required type="text" className="w-full p-3 border border-slate-300 rounded-lg font-mono tracking-wide"
-              placeholder="0000000-00.0000.5.15.0000"
+              placeholder="0010495-16.2023.5.15.0112"
               value={formData.cnj} onChange={e => setFormData({...formData, cnj: maskCNJ(e.target.value)})} />
           </div>
 
@@ -519,8 +545,6 @@ function App() {
   useEffect(() => {
     if (isAuthenticated) {
         fetchProcesses();
-        const interval = setInterval(fetchProcesses, 5000); 
-        return () => clearInterval(interval);
     }
   }, [isAuthenticated]);
 
@@ -531,7 +555,12 @@ function App() {
   }, [processes]);
 
   if (!isAuthenticated) {
-    return <LoginView onLogin={() => setIsAuthenticated(true)} />;
+    return (
+      <>
+        <GlobalStyles />
+        <LoginView onLogin={() => setIsAuthenticated(true)} />
+      </>
+    );
   }
 
   const handleStateClick = (uf) => {
@@ -647,7 +676,7 @@ function App() {
     }, 0);
 
     return (
-      <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="space-y-6 animate-in">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
             <div>
@@ -1092,21 +1121,11 @@ function App() {
 
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans">
-      <style>{`
-        @media print {
-          .no-print { display: none !important; }
-          .print:hidden { display: none !important; }
-          body { background: white; }
-          .sidebar { display: none; }
-          #printable-report { display: block !important; width: 100%; height: 100%; }
-        }
-      `}</style>
-
+      <GlobalStyles />
       <ErrorBoundary>
         <aside className="w-20 lg:w-64 bg-slate-900 text-white flex flex-col fixed h-full z-10 transition-all sidebar">
           <div className="p-6 flex items-center gap-3 border-b border-slate-800">
-            <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center font-bold text-white">J</div>
-            <span className="font-bold text-lg tracking-tight hidden lg:block">JMD Processos</span>
+            <span className="font-bold text-lg tracking-tight hidden lg:block text-center w-full">JMD Processos</span>
           </div>
 
           <nav className="flex-1 py-6 space-y-2 px-3">
@@ -1146,10 +1165,3 @@ function App() {
     </div>
   );
 }
-
-// Render the App
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
